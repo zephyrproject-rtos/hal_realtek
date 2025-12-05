@@ -15,10 +15,7 @@ zephyr_include_directories(source/app/monitor/include)
 zephyr_library_sources(source/fwlib/ram_common/ameba_rtc_io.c)
 zephyr_library_sources(source/fwlib/ram_common/ameba_reset.c)
 zephyr_library_sources(source/fwlib/ram_common/ameba_clk.c)
-zephyr_library_sources(source/fwlib/ram_common/ameba_arch.c)
 zephyr_library_sources(source/swlib/log.c)
-zephyr_library_sources(source/fwlib/ram_common/ameba_ipc_api.c)
-zephyr_library_sources(source/fwlib/ram_common/ameba_ipc_ram.c)
 
 # used by driver, need use zephyr_library_sources_ifdef
 zephyr_library_sources_ifdef(CONFIG_ADC_AMEBA source/fwlib/ram_common/ameba_adc.c)
