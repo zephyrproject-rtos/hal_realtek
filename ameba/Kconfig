@@ -9,14 +9,6 @@ config REALTEK_AMEBA_HAL_LIB
 	help
 	  This option enables the Realtek Ameba HAL library.
 
-config ARM_CORE_CM4
-	bool
-	default y if SOC_SERIES_AMEBAD || SOC_SERIES_AMEBADPLUS
-
-config SOC_SERIES_AMEBADPLUS
-	bool
-
-config SOC_SERIES_AMEBAD
-	bool
+rsource "ameba*/Kconfig"
 
 endif # SOC_FAMILY_REALTEK_AMEBA

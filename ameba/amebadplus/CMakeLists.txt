@@ -3,21 +3,22 @@
 
 zephyr_compile_options(-mcmse)
 
-zephyr_include_directories(include)
-zephyr_include_directories(source/cmsis)
-zephyr_include_directories(source/misc)
-zephyr_include_directories(source/swlib)
-zephyr_include_directories(source/fwlib/include)
-zephyr_include_directories(source/usrcfg/include)
-zephyr_include_directories(source/app/monitor/include)
+zephyr_include_directories(
+  include
+  source/swlib
+  source/fwlib/include
+)
 
 # used by common
-zephyr_library_sources(source/fwlib/ram_common/ameba_rtc_io.c)
-zephyr_library_sources(source/fwlib/ram_common/ameba_reset.c)
-zephyr_library_sources(source/fwlib/ram_common/ameba_clk.c)
-zephyr_library_sources(source/swlib/log.c)
+zephyr_library_sources(
+  source/fwlib/ram_common/ameba_loguart.c
+  source/fwlib/ram_common/ameba_reset.c
+  source/fwlib/ram_common/ameba_clk.c
+  source/swlib/log.c
+)
 
 # used by driver, need use zephyr_library_sources_ifdef
+zephyr_library_sources_ifdef(CONFIG_GPIO_AMEBA source/fwlib/ram_common/ameba_gpio.c)
 zephyr_library_sources_ifdef(CONFIG_ADC_AMEBA source/fwlib/ram_common/ameba_adc.c)
 zephyr_library_sources_ifdef(CONFIG_INPUT_CTC_AMEBA source/fwlib/ram_common/ameba_captouch.c)
 zephyr_library_sources_ifdef(CONFIG_I2S_AMEBA source/fwlib/ram_common/ameba_audio_clock.c)

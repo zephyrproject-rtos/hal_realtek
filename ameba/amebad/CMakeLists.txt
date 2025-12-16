@@ -7,23 +7,18 @@ zephyr_include_directories(
   source/cmsis
   source/misc
   source/swlib
-  source/lib/include
   source/fwlib/include
-  source/usrcfg/include
   source/app/monitor/include
 )
 
 # used by common
 zephyr_library_sources(
   source/fwlib/ram_hp/ameba_system.c
-  source/fwlib/ram_common/ameba_ipc_api.c
-  source/fwlib/ram_common/ameba_arch.c
   source/swlib/log.c
-  source/lib/chipinfo/ameba_rom_patch.c
 )
 
 # used by driver, need use zephyr_library_sources_ifdef
-zephyr_library_sources_ifdef(CONFIG_ENTROPY_AMEBA_TRNG source/lib/chipinfo/ameba_rand2.c)
+zephyr_library_sources_ifdef(CONFIG_GPIO_AMEBA source/fwlib/ram_common/ameba_gpio.c)
 zephyr_library_sources_ifdef(CONFIG_ADC_AMEBA source/fwlib/ram_common/ameba_adc.c)
 zephyr_library_sources_ifdef(CONFIG_SOC_FLASH_AMEBA source/fwlib/ram_common/ameba_flash_ram.c)
 zephyr_library_sources_ifdef(CONFIG_DMA_AMEBA source/fwlib/ram_common/ameba_gdma_ram.c)
