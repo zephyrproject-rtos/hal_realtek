@@ -83,6 +83,13 @@ def get_toolchain_config():
     GCC_FROMELF = os.path.join(toolchain_path, toolchain_prefix + "-objcopy")
     GCC_STRIP = os.path.join(toolchain_path, toolchain_prefix + "-strip")
 
+def if_enable_config(config_file, target_str):
+    with open(config_file, 'r') as infile:
+        for line in infile:
+            if target_str in line:
+                return True
+    return False
+
 def amebadplus_bin_handle(bt_coexist):
     target_dir = Path(out_dir) / 'amebadplus_gcc_project'
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -213,6 +220,77 @@ def amebad_bin_handle():
         print('Error: Fail to manipulate images')
         sys.exit(1)
 
+def amebaG2_bin_handle(bt_coexist):
+    target_dir = Path(out_dir) / 'amebagreen2_gcc_project'
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    xip_image2_bin = target_dir / 'xip_image2.bin'
+    sram_2_bin = target_dir / 'sram_2.bin'
+    psram_2_bin = target_dir / 'psram_2.bin'
+
+    target_pure_img2_axf = target_dir / 'target_pure_img2.axf'
+    target_img2_map = target_dir / 'target_img2.map'
+
+    if bt_coexist:
+        km4ns_image2_all_bin = target_dir / 'km4ns_image2_all_coex.bin'
+    else:
+        km4ns_image2_all_bin = target_dir / 'km4ns_image2_all.bin'
+    km4tz_image2_all_bin = target_dir / 'km4tz_image2_all.bin'
+    km4tz_image3_all_bin = target_dir / 'km4tz_image3_all.bin'
+
+    amebagreen2_boot_bin = target_dir / 'amebagreen2_boot.bin'
+    amebagreen2_app_bin = target_dir / 'amebagreen2_app.bin'
+
+    shutil.copy(Path(zephyr_bin).with_suffix('.elf'), target_pure_img2_axf)
+    shutil.copy(Path(zephyr_bin).with_suffix('.raw.map'), target_img2_map)
+    shutil.copy(zephyr_bin, xip_image2_bin)
+
+    cmd_exec((GCC_STRIP, target_pure_img2_axf))
+    cmd_exec((GCC_FROMELF, '-j', '.ram_image2.entry', '-Obinary', target_pure_img2_axf, sram_2_bin))
+    cmd_exec((GCC_FROMELF, '-j', '.null.empty', '-Obinary', target_pure_img2_axf, psram_2_bin))
+
+    axf2bin_pad(xip_image2_bin, 32)
+    axf2bin_pad(sram_2_bin, 32)
+    axf2bin_pad(psram_2_bin, 32)
+
+    xip_image2_prepend_bin = target_dir / 'xip_image2_prepend.bin'
+    sram_2_prepend_bin = target_dir / 'sram_2_prepend.bin'
+    psram_2_prepend_bin = target_dir / 'psram_2_prepend.bin'
+
+    axf2bin_prepend_head(sram_2_prepend_bin, sram_2_bin, '__KM4TZ_IMG2_ENTRY_start', target_img2_map)
+    axf2bin_prepend_head(psram_2_prepend_bin, psram_2_bin, '__rom_start_address', target_img2_map)
+    axf2bin_prepend_head(xip_image2_prepend_bin, xip_image2_bin, '__rom_start_address', target_img2_map)
+
+    input_files = [xip_image2_prepend_bin, sram_2_prepend_bin, psram_2_prepend_bin]
+    concatenate_files(input_files, km4tz_image2_all_bin)
+
+    blobs_dir = Path(module_dir) / 'zephyr' / 'blobs' / soc_name / 'bin'
+    copy_bin_file(blobs_dir / path_leaf(amebagreen2_boot_bin), amebagreen2_boot_bin)
+    if if_enable_config(Path(zephyr_bin).parent / ".config", 'CONFIG_AMEBAGREEN2_A_CUT=y'):
+        copy_bin_file(blobs_dir / 'a-cut' / path_leaf(km4ns_image2_all_bin), km4ns_image2_all_bin)
+    else:
+        copy_bin_file(blobs_dir / path_leaf(km4ns_image2_all_bin), km4ns_image2_all_bin)
+
+    copy_file_if_exists(blobs_dir / path_leaf(km4tz_image3_all_bin), km4tz_image3_all_bin)
+    shutil.copy(os.path.join(module_dir, 'ameba', soc_name, 'manifest.json5'), target_dir)
+    shutil.copy(os.path.join(module_dir, 'ameba', soc_name, 'ameba_layout.ld'), target_dir)
+
+    cmd_exec((sys.executable, AXF2BIN_SCRIPT, 'cut', '-o', target_dir / 'km4tz_boot.bin', '-i', amebagreen2_boot_bin, '-l', '4096'))
+    ameba_axf2bin_fw_pack(target_dir.resolve(), amebagreen2_boot_bin, '--image1', target_dir / 'km4tz_boot.bin')
+
+    if os.path.exists(km4tz_image3_all_bin):
+        ameba_axf2bin_fw_pack(target_dir.resolve(), amebagreen2_app_bin, '--image2', km4ns_image2_all_bin, km4tz_image2_all_bin, '--image3', km4tz_image3_all_bin)
+    else:
+        ameba_axf2bin_fw_pack(target_dir.resolve(), amebagreen2_app_bin, '--image2', km4ns_image2_all_bin, km4tz_image2_all_bin)
+
+    if os.path.exists(amebagreen2_app_bin):
+        shutil.move(amebagreen2_boot_bin, image_dir)
+        shutil.move(amebagreen2_app_bin, image_dir)
+        print('========== Image manipulating done ==========')
+    else:
+        print('Error: Fail to manipulate images')
+        sys.exit(1)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--soc", required=True, help="SoC name (e.g., amebadplus)")
@@ -238,6 +316,8 @@ if __name__ == "__main__":
         amebadplus_bin_handle(args.bt_coexist)
     elif (soc_name == 'amebad'):
         amebad_bin_handle()
+    elif (soc_name == 'amebaG2'):
+        amebaG2_bin_handle(args.bt_coexist)
     else:
         print(f"Error: Unsupported SoC name '{soc_name}'")
         sys.exit(1)
