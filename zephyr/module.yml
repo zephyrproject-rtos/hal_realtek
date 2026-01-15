@@ -36,18 +36,18 @@ blobs:
     description: "Binary libraries supporting the Ameba series RF subsystems"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib
   - path: amebaG2/bin/km4ns_image2_all.bin
-    sha256: 9a88c85337eaf60d23f55f5a0082278533b5e786950e3daf3b1415f71a4ea635
+    sha256: 50509337fabc31396b9333b5a514e039b4aabc3e6c45065dc59b0955854036c6
     type: img
     version: '1.0'
     license-path: LICENSE
-    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/d9a23ec60d44628a27b354d89597ac58093d4a20/amebaG2/bin/km4ns_image2_all.bin
+    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/9b2364666b0529b9d07aecf6745bb40ba9b153c9/amebaG2/bin/km4ns_image2_all.bin
     description: "Binary libraries supporting the Ameba series RF subsystems"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib
   - path: amebaG2/bin/amebagreen2_boot.bin
-    sha256: c34bc873d49eec623e4e8221a2c788576d099aa3bd78c237f7c814ab673e13f9
+    sha256: 02ea21bbddb6854fd464c2c36746b9475699117f59c0f529c5782915617f0aea
     type: img
     version: '1.0'
     license-path: LICENSE
-    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/d9a23ec60d44628a27b354d89597ac58093d4a20/amebaG2/bin/amebagreen2_boot.bin
+    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/9b2364666b0529b9d07aecf6745bb40ba9b153c9/amebaG2/bin/amebagreen2_boot.bin
     description: "Binary libraries supporting the Ameba series RF subsystems"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib

@@ -57,3 +57,31 @@ zephyr_link_libraries(
     "-Wl,-wrap,strstr"
     "-Wl,-wrap,strncpy"
 )
+
+# west sign
+if(CONFIG_SOC_AMEBA_NP_IMAGE)
+  file(GLOB blob_bin_file "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/${CONFIG_SOC_SERIES}/bin/*.bin")
+
+  if(blob_bin_file)
+    set(python_script_args
+      --soc ${CONFIG_SOC_SERIES}
+      --bin-file ${ZEPHYR_BINARY_DIR}/${KERNEL_BIN_NAME}
+      --out-dir ${CMAKE_BINARY_DIR}
+      --module-dir ${ZEPHYR_HAL_REALTEK_MODULE_DIR}
+    )
+
+    add_custom_target(zephyr.raw.map ALL
+      DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+    )
+
+    add_custom_command(
+      OUTPUT ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+      COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+      COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
+      COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${python_script_args}
+      DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${blob_bin_file} ${CMAKE_CURRENT_SOURCE_DIR}/manifest.json5
+    )
+  else()
+    message(WARNING "Missing Realtek blobs. Run: `west blobs fetch hal_realtek`")
+  endif()
+endif()
