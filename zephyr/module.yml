@@ -1,7 +1,7 @@
 name: hal_realtek
 build:
-  cmake: .
-  kconfig: Kconfig
+  cmake-ext: True
+  kconfig-ext: True
 blobs:
   - path: amebadplus/bin/km0_image2_all.bin
     sha256: c4b6d631d4353e45beae134f0ce2c1d2184c1ab8baba65c207e3efcdbfd66930
