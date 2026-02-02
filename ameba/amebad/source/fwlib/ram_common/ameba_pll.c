@@ -319,4 +319,42 @@ void PLL3_Set(u32 BitMask, u32 NewState)
 
 	RTK_LOGW(TAG, "%s Please check this function \n", __func__);
 }
+
+/**
+  * @brief  Check whether the APB peripheral's clock has been enabled or not
+  * @param  APBPeriph_Clock_in: specifies the APB peripheral to check.
+  *      This parameter can be one of @ref APBPeriph_UART0_CLOCK, APBPeriph_ATIM_CLOCK and etc.
+  * @retval TRUE: The APB peripheral's clock has been enabled
+  * 		FALSE: The APB peripheral's clock has not been enabled
+  */
+u8 RCC_PeriphClockEnableChk(u32 APBPeriph_Clock_in)
+{
+	u8 ret;
+	u32 TempVal, CkeRegOffset = 0;
+	u32 ClkRegIndx = (APBPeriph_Clock_in >> 30) & 0x03;
+	u32 APBPeriph_Clock = APBPeriph_Clock_in & (~(BIT(31) | BIT(30)));
+	assert_param((ClkRegIndx == 0x1) || (ClkRegIndx == 0x2) || (ClkRegIndx == 0x3));
+
+	switch (ClkRegIndx) {
+	case SYS_CLK_CTRL1:
+		CkeRegOffset = REG_HS_PERI_CLK_CTRL1;
+		break;
+	case SYS_CLK_CTRL2:
+		CkeRegOffset = REG_HS_PERI_CLK_CTRL2;
+		break;
+	case SYS_CLK_CTRL3:
+		CkeRegOffset = REG_HS_PERI_CLK_CTRL3;
+		break;
+	}
+
+	TempVal = HAL_READ32(SYSTEM_CTRL_BASE, CkeRegOffset);
+	if (TempVal & APBPeriph_Clock) {
+		ret = TRUE;
+	} else {
+		ret = FALSE;
+	}
+
+	return ret;
+}
+
 /******************* (C) COPYRIGHT 2016 Realtek Semiconductor *****END OF FILE****/
