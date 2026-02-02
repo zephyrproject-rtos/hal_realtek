@@ -19,6 +19,14 @@ blobs:
     url: https://github.com/Ameba-AIoT/nuwa_lib/raw/d9a23ec60d44628a27b354d89597ac58093d4a20/amebadplus/bin/km4_boot_all.bin
     description: "Binary libraries supporting the Ameba series RF subsystems"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib
+  - path: ameba/amebadplus/bin/floader_amebadplus.bin
+    sha256: c4147f2747a1c511483454657bf93b6a95399a371781e23b2b269d337f9ed7bf
+    type: img
+    version: '1.0'
+    license-path: LICENSE
+    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/a1b7aacea24e60d1c43251b2eb5213985850e8cc/amebadplus/bin/floader_amebadplus.bin
+    description: "flashloader to support AmebaFlash runner"
+    doc-url: https://github.com/Ameba-AIoT/nuwa_lib
   - path: ameba/amebad/bin/bootloader_all.bin
     sha256: 74d86e9c144fe5018835de4dfb308c1350057d614fda016576099ea379a60d6e
     type: img
@@ -50,4 +58,12 @@ blobs:
     license-path: LICENSE
     url: https://github.com/Ameba-AIoT/nuwa_lib/raw/9b2364666b0529b9d07aecf6745bb40ba9b153c9/amebaG2/bin/amebagreen2_boot.bin
     description: "Binary libraries supporting the Ameba series RF subsystems"
+    doc-url: https://github.com/Ameba-AIoT/nuwa_lib
+  - path: ameba/amebaG2/bin/floader_amebagreen2.bin
+    sha256: dfbd6bb24237308527bcc0478cf3ec9d3ff3c6d1aa0d6b1017ffcce24af5b6c5
+    type: img
+    version: '1.0'
+    license-path: LICENSE
+    url: https://github.com/Ameba-AIoT/nuwa_lib/raw/a1b7aacea24e60d1c43251b2eb5213985850e8cc/amebaG2/bin/floader_amebagreen2.bin
+    description: "flashloader to support AmebaFlash runner"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib
