@@ -30,7 +30,7 @@ build:
 blobs:"""
 
 lib_item = '''
-  - path: {SOC}/lib/{FILENAME}
+  - path: ameba/{SOC}/lib/{FILENAME}
     sha256: {SHA256}
     type: lib
     version: '1.0'
@@ -40,7 +40,7 @@ lib_item = '''
     doc-url: {URL_BASE}'''
 
 img_item = '''
-  - path: {SOC}/bin/{FILENAME}
+  - path: ameba/{SOC}/bin/{FILENAME}
     sha256: {SHA256}
     type: img
     version: '1.0'
