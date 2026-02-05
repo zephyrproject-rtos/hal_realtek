@@ -36,7 +36,7 @@ class MemoryType(IntEnum):
 DEVICE_MAP = {
     "amebag2": {
         "profile": "RTL8721F_NOR.rdev",
-        "floader": "amebaG2/bin/floader_amebagreen2.bin"
+        "floader": "amebag2/bin/floader_amebagreen2.bin"
     },
     "amebadplus": {
         "profile": "RTL8721Dx.rdev",

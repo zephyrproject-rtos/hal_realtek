@@ -52,7 +52,7 @@ class FirmwarePacker:
         self.module_dir = Path(args.module_dir).resolve()
 
         # Map external SoC names to internal directory names
-        internal_map = {"amebaG2": "amebagreen2"}
+        internal_map = {"amebag2": "amebagreen2"}
         self.internal_name = internal_map.get(soc_name, soc_name.lower())
 
         self.target_dir = self.out_dir / f'{self.internal_name}_gcc_project'
@@ -386,7 +386,7 @@ def main():
 
     try:
         if args.mcuboot:
-            if args.soc == "amebaG2":
+            if args.soc == "amebag2":
                 handle_amebaG2_mcuboot(packer)
             else:
                 logger.error(f"MCUBoot not supported for {args.soc}")
@@ -396,7 +396,7 @@ def main():
                 handle_amebadplus(packer)
             elif args.soc == "amebad":
                 handle_amebad(packer)
-            elif args.soc == "amebaG2":
+            elif args.soc == "amebag2":
                 handle_amebaG2(packer)
             else:
                 logger.error(f"Unsupported SoC: {args.soc}")
