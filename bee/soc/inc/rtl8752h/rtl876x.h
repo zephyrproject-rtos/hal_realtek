@@ -5308,8 +5308,14 @@ typedef struct
 /* ================================================================================ */
 #define CLK_GATE                        ((Peri_ClockGate_TypeDef  *) PERI_CLOCKGATE_REG_BASE)
 
+#ifndef LITTLE_ENDIAN
 #define LITTLE_ENDIAN                   0
+#endif
+
+#ifndef BIG_ENDIAN
 #define BIG_ENDIAN                      1
+#endif
+
 #define SYSTEM_ENDIAN                   LITTLE_ENDIAN
 
 #define SWAP32(x) ((uint32_t)(\
