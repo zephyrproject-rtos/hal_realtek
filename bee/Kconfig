@@ -2,3 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 rsource "drivers/Kconfig"
+
+config SOC_SERIES_RTL8752H
+    bool
