@@ -1,4 +1,8 @@
 name: hal_realtek
+package-managers:
+  pip:
+    requirement-files:
+      - ameba/scripts/requirements.txt
 build:
   cmake-ext: True
   kconfig-ext: True

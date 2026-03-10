@@ -1,0 +1,20 @@
+# General cryptographic primitives and key handling
+cryptography
+
+# AES and other symmetric crypto algorithms
+pycryptodome
+
+# ECC utilities based on mbedtls (curves, key ops)
+python-mbedtls
+
+# DES / 3DES encryption support
+pyDes
+
+# JSON5 configuration / manifest parsing
+json5
+
+# Extra crypto helper library required by Ameba image tools
+sslcrypto
+
+# ECDSA signing / verification helper library
+ecdsa
