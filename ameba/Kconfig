@@ -10,5 +10,6 @@ config REALTEK_AMEBA_HAL_LIB
 	  This option enables the Realtek Ameba HAL library.
 
 rsource "ameba*/Kconfig"
+rsource "common/wifi/Kconfig"
 
 endif # SOC_FAMILY_REALTEK_AMEBA

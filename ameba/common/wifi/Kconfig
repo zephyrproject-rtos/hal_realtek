@@ -1,0 +1,21 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config REALTEK_AMEBA_ZEPHYR_WIFI
+	bool "RealTek Ameba Zephyr WIFI"
+	default y
+	help
+	  This option enables the Realtek Ameba WIFI.
+
+if REALTEK_AMEBA_ZEPHYR_WIFI
+config WLAN
+	bool "enable wifi"
+	default y
+
+config AS_INIC_AP
+	bool
+
+config SINGLE_CORE_WIFI
+	bool
+
+endif # REALTEK_AMEBA_ZEPHYR_WIFI

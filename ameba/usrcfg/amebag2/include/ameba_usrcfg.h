@@ -18,5 +18,7 @@
 #include "ameba_intfcfg.h"
 
 /* wifi configuration*/
-// #include "ameba_wificfg_common.h"
-#endif /* _AMEBA_USRCFG_H_ */
+#include "ameba_wificfg_common.h"
+
+#endif
+
