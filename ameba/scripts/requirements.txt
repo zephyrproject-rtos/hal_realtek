@@ -4,9 +4,6 @@ cryptography
 # AES and other symmetric crypto algorithms
 pycryptodome
 
-# ECC utilities based on mbedtls (curves, key ops)
-python-mbedtls
-
 # DES / 3DES encryption support
 pyDes
 
