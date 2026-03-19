@@ -7,6 +7,10 @@
 #ifndef _AMEBA_CLK_H_
 #define _AMEBA_CLK_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** @addtogroup AmebaD_Platform
   * @{
   */
@@ -109,6 +113,17 @@
   * @}
   */
 
+/** @defgroup SDM_USER_DEFINED_param_definitions
+  * @{
+  */
+#define SDM_OBS_CYC_DEFAULT		1024
+#define SDM_OBS_REF_CYC_DEFAULT		312500
+#define SDM_OBS_REF_CYC_MODIFY		312503
+#define SDM_XTAL_PERIOD_DEFAULT   102400
+/**
+  * @}
+  */
+
 /** @defgroup XTAL_CLK_definitions
 * @{
 */
@@ -179,6 +194,7 @@
   */
 _LONG_CALL_ void SDM32K_Enable(void);
 _LONG_CALL_ void SDM32K_TimerCalEnable(u32 RTCCalibration);
+_LONG_CALL_ void SDM32K_CalFactorModify(u32 newstatus);
 /**
   * @}
   */
@@ -335,5 +351,9 @@ void OSC131_R_Set(u32 setbit, u32 clearbit);
 u32 OSC_CalResult_Get(u8 cal_clk);
 void XTAL_INIT(void);
 void XTAL_AACK(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //_AMEBA_CLK_H_

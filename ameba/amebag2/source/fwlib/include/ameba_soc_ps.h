@@ -7,6 +7,11 @@
 #ifndef _AMEBA_SOCPS_H_
 #define _AMEBA_SOCPS_H_
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum wakeup_mask {
 	WAKEUP_NULL	= 0,
 	WAKEUP_NP	= 1,
@@ -16,7 +21,13 @@ enum wakeup_mask {
 struct WakeEvent_TypeDef {
 	u32 Module;
 	enum wakeup_mask Wakeup;
-} ;
+};
+
+struct PSCFG_TypeDef {
+	u8 keep_osc4m_on;			/* keep OSC4M on or off for sleep and dslp*/
+	u8 xtal_mode_in_sleep;		/* set xtal mode during sleep mode*/
+	u8 sleep_to_08V;			/* default sleep to 0.7V, set this option to TRUE will sleep to 0.8V */
+};
 
 struct MPU_BackUp_TypeDef {
 	u32 CTRL;
@@ -94,4 +105,8 @@ void SOCPS_USBSuspendWakeControl(u8 status);
 void SOCPS_PowerStateSetInSleep(u8 pwr_sts);
 void SOCPS_PowerStateSetInNormal(u8 pwr_sts);
 void SOCPS_SetMemMode(u32 module, u32 mem_mode);
+
+#ifdef __cplusplus
+}
+#endif
 #endif  //_AMEBA_SOCPS_H_

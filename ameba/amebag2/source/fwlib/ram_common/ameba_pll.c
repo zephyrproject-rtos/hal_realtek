@@ -393,3 +393,5 @@ void RCC_PeriphClockSource_SPORT(AUDIO_SPORT_TypeDef *Sportx, u32 Source)
 		RTK_LOGE(TAG, "invaild clk source!!!");
 	}
 }
+
+/******************* (C) COPYRIGHT 2016 Realtek Semiconductor *****END OF FILE****/

@@ -1309,6 +1309,7 @@ _LONG_CALL_ void GDMA_Resume(u8 GDMA_Index, u8 GDMA_ChNum);
 _LONG_CALL_ u8   GDMA_Abort(u8 GDMA_Index, u8 GDMA_ChNum);
 _LONG_CALL_ void GDMA_SourceGather(u8 GDMA_Index, u8 GDMA_ChNum, u32 Src_GatherCount, u32 Src_GatherInterval);
 _LONG_CALL_ void GDMA_DestinationScatter(u8 GDMA_Index, u8 GDMA_ChNum, u32 Dst_ScatterCount, u32 Dst_ScatterInterval);
+_LONG_CALL_ u8   GDMA_ChannelIsActive(u8 GDMA_Index, u8 GDMA_ChNum);
 /**
   * @}
   */

@@ -176,10 +176,10 @@ u32 OSC131K_Calibration(u32 ppm_limit)
 	}
 
 	cur_ppm = delta * 1000000 / target_40m_counter;
-	RTK_LOGI(TAG, "[CAL131K]: delta:%d target:%d PPM: %d PPM_Limit:%d \n", delta, target_40m_counter, cur_ppm, ppm_limit);
+	RTK_LOGI(TAG, "[CAL131K]: delta:%lu target:%lu PPM: %lu PPM_Limit:%lu \n", delta, target_40m_counter, cur_ppm, ppm_limit);
 
 	if (cur_ppm >= ppm_limit) {
-		RTK_LOGE(TAG, "[CAL131K]: !!! cal fail !!! PPM: %d PPM_Limit:%d \n", cur_ppm, ppm_limit);
+		RTK_LOGE(TAG, "[CAL131K]: !!! cal fail !!! PPM: %lu PPM_Limit:%lu \n", cur_ppm, ppm_limit);
 		assert_param(0);
 	}
 
@@ -354,10 +354,10 @@ u32 OSC4M_Calibration(u32 ppm_limit)
 
 cal_end:
 	cur_ppm = delta * 1000000 / target_40m_counter;
-	RTK_LOGI(TAG, "[CAL4M]: delta:%d target:%d PPM: %d PPM_Limit:%d \n", delta, target_40m_counter, cur_ppm, ppm_limit);
+	RTK_LOGI(TAG, "[CAL4M]: delta:%lu target:%lu PPM: %lu PPM_Limit:%lu \n", delta, target_40m_counter, cur_ppm, ppm_limit);
 
 	if (cur_ppm >= ppm_limit) {
-		RTK_LOGW(TAG, "[CAL4M]: PPM: %d PPM_Limit:%d \n", cur_ppm, ppm_limit);
+		RTK_LOGW(TAG, "[CAL4M]: PPM: %lu PPM_Limit:%lu \n", cur_ppm, ppm_limit);
 		assert_param(0);
 	}
 

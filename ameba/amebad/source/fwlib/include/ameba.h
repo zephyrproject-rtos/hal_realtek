@@ -51,7 +51,7 @@
 #else
 #include "ameba_rcc_lp.h"
 #endif
-// #include "sscanf_minimal.h"
+#include "sscanf_minimal.h"
 
 #include "ameba_trustzone.h"
 #include "ameba_arch.h"

@@ -8,6 +8,7 @@
 
 #include "ameba_soc.h"
 #include "usb_hal.h"
+#include "usb_regs.h"
 
 /* Private defines -----------------------------------------------------------*/
 
@@ -33,7 +34,9 @@ static void usb_chip_enable_interrupt(u8 priority);
 static void usb_chip_disable_interrupt(void);
 static void usb_chip_register_irq_handler(void *handler, u8 priority);
 static void usb_chip_unregister_irq_handler(void);
-
+#if CONFIG_USB_PM
+static void usb_chip_cg(u32 ms);
+#endif
 /* Private variables ---------------------------------------------------------*/
 
 static usb_cal_data_t usb_cal_data[USB_CAL_DATA_LEN];
@@ -48,6 +51,9 @@ usb_hal_driver_t usb_hal_driver = {
 	.disable_interrupt = usb_chip_disable_interrupt,
 	.register_irq_handler = usb_chip_register_irq_handler,
 	.unregister_irq_handler = usb_chip_unregister_irq_handler,
+#if CONFIG_USB_PM
+	.cg = usb_chip_cg,
+#endif
 };
 
 /* Private functions ---------------------------------------------------------*/
@@ -319,7 +325,7 @@ static void usb_chip_disable_interrupt(void)
 static void usb_chip_register_irq_handler(void *handler, u8 priority)
 {
 	if (handler != NULL) {
-		InterruptRegister((IRQ_FUN)handler, USB_IRQ, (u32)NULL, priority);
+		InterruptRegister((IRQ_FUN)handler, USB_IRQ, NULL, priority);
 	}
 }
 
@@ -331,4 +337,92 @@ static void usb_chip_unregister_irq_handler(void)
 {
 	InterruptUnRegister(USB_IRQ);
 }
+
+#if CONFIG_USB_PM
+static void usb_chip_wake_event(u8 enable)
+{
+	if (enable) {
+		SOCPS_SetAPWakeEvent(WAKE_SRC_USB, ENABLE);
+	} else {
+		SOCPS_SetAPWakeEvent(WAKE_SRC_USB, DISABLE);
+	}
+}
+
+static u32 usb_chip_cg_suspend_cb(u32 expected_idle_time, void *param)
+{
+	(void) expected_idle_time;
+	(void) param;
+	PLL_TypeDef *sys_pll = (PLL_TypeDef *)PLL_REG_BASE;
+
+	USB_PCGCCTL = USB_PCGCCTL | USB_OTG_PCGCCTL_STOPCLK;
+
+	sys_pll->PLL_UPLL_CTRL0 |= PLL_BIT_SUSPEND_WAK_MSK;
+	return TRUE;
+}
+
+static u32 usb_chip_cg_resume_cb(u32 expected_idle_time, void *param)
+{
+	(void) expected_idle_time;
+	(void) param;
+	u32 reg;
+
+	USB_PCGCCTL = USB_PCGCCTL & (~(USB_OTG_PCGCCTL_STOPCLK | USB_OTG_PCGCCTL_GATECLK));
+
+	reg = HAL_READ32(USB_ADDON_REG_CTRL, 0);
+	reg &= ~USB_ADDON_REG_CTRL_BIT_DIS_SUSPEND;
+	HAL_WRITE32(USB_ADDON_REG_CTRL, 0U, reg);
+
+	PLL_TypeDef *sys_pll = (PLL_TypeDef *)PLL_REG_BASE;
+	sys_pll->PLL_UPLL_CTRL0 &= ~PLL_BIT_SUSPEND_WAK_MSK;
+
+	usb_chip_wake_event(0);
+	pmu_acquire_wakelock(PMU_OS);//Stay active
+	pmu_unregister_sleep_callback(PMU_DEV_USER_BASE);
+	return TRUE;
+}
+
+static u32 usb_chip_aontimer_cb(void *Data)
+{
+	(void)Data;
+
+	RTK_LOGS(NOTAG, RTK_LOG_INFO, "AON timer handler: %x\n", SOCPS_AONWakeReason());
+	AONTimer_ClearINT();
+	RCC_PeriphClockCmd(APBPeriph_ATIM, APBPeriph_ATIM_CLOCK, DISABLE);
+	pmu_acquire_wakelock(PMU_OS);//Stay active
+	return 0;
+}
+
+static void usb_chip_aontimer_cg(u32 ms)
+{
+	RCC_PeriphClockCmd(APBPeriph_ATIM, APBPeriph_ATIM_CLOCK, ENABLE);
+	RTK_LOGS(NOTAG, RTK_LOG_INFO, "AON timer %d ms\n", ms);
+
+	AONTimer_Setting(ms);
+	AONTimer_INT(ENABLE);
+
+	InterruptRegister((IRQ_FUN)usb_chip_aontimer_cb, AON_TIM_IRQ, NULL, 3);
+	InterruptEn(AON_TIM_IRQ, 3);
+
+	SOCPS_SetAPWakeEvent(WAKE_SRC_AON_TIM, ENABLE);
+}
+
+static void usb_chip_cg(u32 ms)
+{
+	/*Set AP sleep type*/
+	pmu_set_sleep_type(SLEEP_CG);
+	/*Acquire wakelock to avoid AP enter sleep mode*/
+	pmu_acquire_wakelock(PMU_OS);
+
+	pmu_register_sleep_callback(PMU_DEV_USER_BASE, (PSM_HOOK_FUN)usb_chip_cg_suspend_cb, NULL, (PSM_HOOK_FUN)usb_chip_cg_resume_cb, NULL);
+
+	if (ms) {//Select CG wake event
+		usb_chip_aontimer_cg(ms);//Aon timer wakeup
+	} else {
+		usb_chip_wake_event(1);//USB event wakeup
+	}
+	/* Release wakelock, to make CPU enter sleep mode */
+	pmu_release_wakelock(PMU_OS);
+}
+#endif
+
 /* Exported functions --------------------------------------------------------*/

@@ -6,6 +6,34 @@
 
 #include "ameba_soc.h"
 
+void GPIO_Init(GPIO_InitTypeDef  *GPIO_InitStruct)
+{
+	/* open gpio function and clock */
+	//RCC_PeriphClockCmd(APBPeriph_GPIO, APBPeriph_GPIO_CLOCK, ENABLE);
+
+	assert_param(GPIO_InitStruct->GPIO_Mode <= GPIO_Mode_INT);
+
+	/* GPIO Pad shouddown control: Turn on the corresponding GPIO Pad and pinmux to GPIO */
+	Pinmux_Config(GPIO_InitStruct->GPIO_Pin, PINMUX_FUNCTION_GPIO);
+
+	if (GPIO_InitStruct->GPIO_Mode == GPIO_Mode_INT) {
+		GPIO_Direction(GPIO_InitStruct->GPIO_Pin, GPIO_Mode_IN);
+		PAD_PullCtrl(GPIO_InitStruct->GPIO_Pin, GPIO_InitStruct->GPIO_PuPd);
+
+		GPIO_INTMode(GPIO_InitStruct->GPIO_Pin, ENABLE, GPIO_InitStruct->GPIO_ITTrigger,
+					 GPIO_InitStruct->GPIO_ITPolarity, GPIO_InitStruct->GPIO_ITDebounce);
+	} else {
+		GPIO_INTMode(GPIO_InitStruct->GPIO_Pin, DISABLE, 0, 0, 0);
+
+		if (GPIO_InitStruct->GPIO_Mode == GPIO_Mode_OUT) {
+			GPIO_Direction(GPIO_InitStruct->GPIO_Pin, GPIO_Mode_OUT);
+		} else if (GPIO_InitStruct->GPIO_Mode == GPIO_Mode_IN) {
+			GPIO_Direction(GPIO_InitStruct->GPIO_Pin, GPIO_Mode_IN);
+			PAD_PullCtrl(GPIO_InitStruct->GPIO_Pin, GPIO_InitStruct->GPIO_PuPd);
+		}
+	}
+}
+
 static GPIO_TypeDef *GPIO_PortAddrGet(u32 GPIO_Port)
 {
 	GPIO_TypeDef *GPIO = NULL;

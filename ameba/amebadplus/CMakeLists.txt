@@ -3,23 +3,39 @@
 
 zephyr_compile_options(-mcmse)
 
+set(LIB_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/lib)
+
+zephyr_link_libraries_ifdef(CONFIG_WIFI_AMEBA
+  ${LIB_PATH}/lib_wifi_whc_ap.a
+  ${LIB_PATH}/lib_wifi_api.a
+  ${LIB_PATH}/lib_rtw_event.a
+  ${LIB_PATH}/lib_wpa_lite.a
+  ${LIB_PATH}/lib_wifi_com_sec.a
+  ${LIB_PATH}/lib_coex_api.a
+  ${LIB_PATH}/lib_wifi_rtk_app.a
+)
 zephyr_include_directories(
   include
+  source/cmsis
+  source/misc
   source/swlib
   source/fwlib/include
+  source/usrcfg/include
+  source/app/monitor/include
 )
 
 # used by common
 zephyr_library_sources(
-  source/fwlib/ram_common/ameba_loguart.c
+  source/fwlib/ram_common/ameba_rtc_io.c
   source/fwlib/ram_common/ameba_reset.c
   source/fwlib/ram_common/ameba_clk.c
   source/swlib/log.c
+  source/fwlib/ram_common/ameba_adc.c
+  source/fwlib/ram_common/ameba_loguart.c
 )
 
 # used by driver, need use zephyr_library_sources_ifdef
 zephyr_library_sources_ifdef(CONFIG_GPIO_AMEBA source/fwlib/ram_common/ameba_gpio.c)
-zephyr_library_sources_ifdef(CONFIG_ADC_AMEBA source/fwlib/ram_common/ameba_adc.c)
 zephyr_library_sources_ifdef(CONFIG_INPUT_CTC_AMEBA source/fwlib/ram_common/ameba_captouch.c)
 zephyr_library_sources_ifdef(CONFIG_I2S_AMEBA source/fwlib/ram_common/ameba_audio_clock.c)
 zephyr_library_sources_ifdef(CONFIG_I2S_AMEBA source/fwlib/ram_common/ameba_pll.c)
@@ -39,21 +55,3 @@ zephyr_link_libraries(
     -T${CMAKE_CURRENT_SOURCE_DIR}/ld/ameba_rom_symbol_acut_s.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/ld/ameba_rom_symbol_stdlib.ld
   )
-
-zephyr_link_libraries(
-    "-Wl,-wrap,memchr"
-    "-Wl,-wrap,memcmp"
-    "-Wl,-wrap,memcpy"
-    "-Wl,-wrap,memmove"
-    "-Wl,-wrap,memset"
-    "-Wl,-wrap,strcmp"
-    "-Wl,-wrap,strlen"
-    "-Wl,-wrap,strtoul"
-    "-Wl,-wrap,strupr"
-    "-Wl,-wrap,stricmp"
-    "-Wl,-wrap,rand"
-    "-Wl,-wrap,strchr"
-    "-Wl,-wrap,strncmp"
-    "-Wl,-wrap,strstr"
-    "-Wl,-wrap,strncpy"
-)

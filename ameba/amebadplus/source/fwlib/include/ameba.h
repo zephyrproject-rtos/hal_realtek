@@ -78,9 +78,9 @@
 #include "ameba_aontimer.h"
 #include "ameba_rcc.h"
 #include "ameba_rom_patch.h"
-// #include "ameba_usrcfg.h"
+#include "ameba_usrcfg.h"
 #include "log.h"
-// #include "sscanf_minimal.h"
+#include "sscanf_minimal.h"
 
 #define IMAGE_HEADER_LEN		0x20
 typedef struct {

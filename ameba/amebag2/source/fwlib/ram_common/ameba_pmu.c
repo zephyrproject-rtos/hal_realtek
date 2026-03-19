@@ -7,7 +7,7 @@
 #include "platform_autoconf.h"
 #include "ameba_soc.h"
 
-uint32_t missing_tick = 0;
+uint32_t cur_device_id = 0;
 
 static uint32_t wakelock     = DEFAULT_WAKELOCK;
 static uint32_t sleep_type = SLEEP_PG; /* 0 is power gate, 1 is clock gate */
@@ -45,7 +45,7 @@ uint32_t pmu_exec_sleep_hook_funs(void)
 	return nDeviceIdOffset;
 }
 
-void pmu_exec_wakeup_hook_funs(uint32_t nDeviceIdMax)
+void pmu_exec_wakeup_hook_funs(uint32_t nDeviceIdMax, uint32_t common_param)
 {
 	PSM_DD_HOOK_INFO *pPsmDdHookInfo = NULL;
 	uint32_t nDeviceIdOffset = 0;
@@ -55,7 +55,7 @@ void pmu_exec_wakeup_hook_funs(uint32_t nDeviceIdMax)
 
 		/*if this device register and sleep_hook_fun not NULL*/
 		if (pPsmDdHookInfo && pPsmDdHookInfo->wakeup_hook_fun) {
-			pPsmDdHookInfo->wakeup_hook_fun(0, pPsmDdHookInfo->wakeup_param_ptr);
+			pPsmDdHookInfo->wakeup_hook_fun(common_param, pPsmDdHookInfo->wakeup_param_ptr);
 		}
 	}
 }
@@ -65,7 +65,13 @@ uint32_t pmu_set_sysactive_time(uint32_t timeout)
 	uint32_t New_Cnt = 0;
 	PMCTIMER_TpyeDef *PMC_TIMER = PMC_TIMER_DEV;
 
-	New_Cnt = (u32)((((u64)timeout) << 15) / 1000); /*convert ms to cnt*/
+	/*convert ms to cnt:
+	  method: the ticks/ms equals 32 + 197/256 = 32.7695, and the deviation is 32.7695 - 32.768 = 0.0046%.
+	  The error is 46µs per second.The reason for using bit shift operations is to avoid division and
+	  improve the speed of operation.
+	*/
+	New_Cnt = (timeout << 5) + (((timeout << 7) + (timeout << 6) + (timeout << 2) + timeout) >> 8);
+
 	PMCTimerCnt_Set(PMC_TIMER, PMC_SLEEP_TIMER, New_Cnt);
 
 	return 0;
@@ -218,13 +224,19 @@ void pmu_pre_sleep_processing(uint32_t *tick_before_sleep)
 #endif
 		sleep_param.dlps_enable = DISABLE;
 	}
-
 	/*  Store gtimer timestamp before sleep */
 	*tick_before_sleep = SYSTIMER_TickGet();
 	/*Disable systick interrupt to avoid interrupting sleep flow*/
 	Systick_Cmd(DISABLE);
+	/* exec sleep hook functions */
+	cur_device_id = pmu_exec_sleep_hook_funs();
 
-#if defined(CONFIG_WIFI_HOST_CONTROL)
+	if (cur_device_id != PMU_MAX) {
+		RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, "Sleep blocked because Dev %x  busy\n", cur_device_id);
+		return;
+	}
+
+#if (!defined (CONFIG_WHC_INTF_IPC) && defined (CONFIG_WHC_DEV))
 	SOCPS_Sleep_FULLMAC(sleep_type);
 #else
 	if (sleep_type == SLEEP_PG) {
@@ -233,7 +245,6 @@ void pmu_pre_sleep_processing(uint32_t *tick_before_sleep)
 		SOCPS_SleepCG();
 	}
 #endif
-	Systick_Cmd(ENABLE);
 }
 
 /* -------- FreeRTOS macro implementation -------- */
@@ -313,7 +324,7 @@ u32 pmc_wakeuptimer_int_hdl(void *Data)
 
 void pmu_init_wakeup_timer(void)
 {
-	InterruptRegister(pmc_wakeuptimer_int_hdl, PMC_TIMER_IRQ, (uint32_t)NULL, PMC_TIMER_INT_PRIO);
+	InterruptRegister(pmc_wakeuptimer_int_hdl, PMC_TIMER_IRQ, 0, PMC_TIMER_INT_PRIO);
 	InterruptEn(PMC_TIMER_IRQ, PMC_TIMER_INT_PRIO);
 	PMCTimer_INTConfig(PMC_TIMER_DEV, PMC_WAKEUP_TIMER, ENABLE);
 }
@@ -322,8 +333,12 @@ void pmu_set_wakeup_timer(uint32_t timeout_ms)
 {
 	uint32_t timeout_cnt = 0;
 	PMCTIMER_TpyeDef *PMC_TIMER = PMC_TIMER_DEV;
-
-	timeout_cnt = (timeout_ms << 15) / 1000;  /*convert ms to cnt*/
+	/*convert ms to cnt:
+	  method: the ticks/ms equals 32 + 197/256 = 32.7695, and the deviation is 32.7695 - 32.768 = 0.0046%.
+	  The error is 46µs per second.The reason for using bit shift operations is to avoid division and
+	  improve the speed of operation.
+	*/
+	timeout_cnt = (timeout_ms << 5) + (((timeout_ms << 7) + (timeout_ms << 6) + (timeout_ms << 2) + timeout_ms) >> 8);
 
 	PMCTimerCnt_Set(PMC_TIMER, PMC_WAKEUP_TIMER, timeout_cnt);
 }
@@ -340,7 +355,13 @@ void pmu_set_dsleep_active_time(uint32_t TimeOutMs)
 	uint32_t New_Cnt = 0;
 	PMCTIMER_TpyeDef *PMC_TIMER = PMC_TIMER_DEV;
 
-	New_Cnt = (TimeOutMs << 15) / 1000;  /*convert ms to cnt*/
+	/*convert ms to cnt:
+	  method: the ticks/ms equals 32 + 197/256 = 32.7695, and the deviation is 32.7695 - 32.768 = 0.0046%.
+	  The error is 46µs per second.The reason for using bit shift operations is to avoid division and
+	  improve the speed of operation.
+	*/
+	New_Cnt = (TimeOutMs << 5) + (((TimeOutMs << 7) + (TimeOutMs << 6) + (TimeOutMs << 2) + TimeOutMs) >> 8);
+
 	PMCTimerCnt_Set(PMC_TIMER, PMC_DSLP_TIMER, New_Cnt);
 }
 

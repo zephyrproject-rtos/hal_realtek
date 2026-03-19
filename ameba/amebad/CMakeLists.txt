@@ -1,5 +1,16 @@
 # Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
+
+zephyr_link_libraries_ifdef(CONFIG_WIFI_AMEBA
+  -Wl,--start-group
+  ${LIB_PATH}/lib_wifi_rtk_app.a
+  ${LIB_PATH}/lib_wifi_single_core.a
+  -Wl,--end-group
+  ${LIB_PATH}/lib_wifi_api.a
+  ${LIB_PATH}/lib_rtw_event.a
+  ${LIB_PATH}/lib_wpa_lite.a
+  ${LIB_PATH}/lib_wifi_com_sec.a
+)
 zephyr_compile_options(-mcmse)
 
 zephyr_include_directories(
@@ -7,7 +18,9 @@ zephyr_include_directories(
   source/cmsis
   source/misc
   source/swlib
+  source/lib/include
   source/fwlib/include
+  source/usrcfg/include
   source/app/monitor/include
 )
 
@@ -16,6 +29,7 @@ zephyr_library_sources(
   source/fwlib/ram_hp/ameba_system.c
   source/fwlib/ram_common/ameba_pll.c
   source/swlib/log.c
+  source/fwlib/ram_common/ameba_reset.c
 )
 
 # used by driver, need use zephyr_library_sources_ifdef

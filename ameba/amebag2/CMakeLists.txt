@@ -1,8 +1,20 @@
-#
+# Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_compile_options(-mcmse)
 
+set(LIB_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/lib)
+
+set(WIFI_LIB_PATH ${LIB_PATH})
+zephyr_link_libraries_ifdef(CONFIG_WIFI_AMEBA
+  ${WIFI_LIB_PATH}/lib_wifi_whc_ap.a
+  ${WIFI_LIB_PATH}/lib_rtw_event.a
+  ${WIFI_LIB_PATH}/lib_wifi_api.a
+  ${WIFI_LIB_PATH}/lib_wpa_lite.a
+  ${WIFI_LIB_PATH}/lib_wifi_common.a
+  ${WIFI_LIB_PATH}/lib_coex_api.a
+  ${WIFI_LIB_PATH}/lib_wifi_rtk_app.a
+)
 zephyr_include_directories(
   include
   source/fwlib/include
@@ -40,12 +52,15 @@ zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_AMEBA source/fwlib/ram_common/am
 zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_AMEBA source/fwlib/ram_common/ameba_ups.c)
 zephyr_library_sources_ifdef(CONFIG_UART_AMEBA source/fwlib/ram_common/ameba_uart.c)
 zephyr_library_sources_ifdef(CONFIG_TEMP_AMEBA source/fwlib/ram_common/ameba_thermal.c)
-zephyr_library_sources_ifdef(CONFIG_REALTEK_AMEBA_ZEPHYR_USB source/fwlib/ram_common/ameba_usb.c)
 zephyr_library_sources_ifdef(CONFIG_WIFI_AMEBA source/fwlib/ram_common/ameba_pmu.c)
 zephyr_library_sources_ifdef(CONFIG_WIFI_AMEBA source/fwlib/ram_common/ameba_pmctimer.c)
 zephyr_library_sources_ifdef(CONFIG_AMEBA_PPE source/fwlib/ram_common/ameba_ppe.c)
+zephyr_library_sources_ifdef(CONFIG_SDHC_AMEBA source/fwlib/ram_common/ameba_sd.c)
+zephyr_library_sources_ifdef(CONFIG_SDHC_AMEBA source/fwlib/ram_common/ameba_sd_host.c)
 
 zephyr_link_libraries(
   -T${CMAKE_CURRENT_SOURCE_DIR}/ld/ameba_rom_symbol_bcut.ld
   -T${CMAKE_CURRENT_SOURCE_DIR}/ld/ameba_rom_symbol_bcut_wifi.ld
 )
+
+add_subdirectory_ifdef(CONFIG_AMEBA_MJPEG source/fwlib/jpeg_decoder)

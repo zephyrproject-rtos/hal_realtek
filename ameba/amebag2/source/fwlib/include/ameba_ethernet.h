@@ -2243,10 +2243,18 @@ typedef struct {
 /* MANUAL_GEN_START */
 
 // Please add your definitions here
-/// Defines the packet buffer size
-#define ETH_PKT_BUFF_SZ                 1600 //1514?
-/// Defines the MAC address length
-#define ETH_MAC_ADDR_LEN                6
+/* Define Ethernet Packet Field length */
+#define ETH_MAC_ADDR_LEN        (6)
+#define ETH_HEADER_LEN          (2 * ETH_MAC_ADDR_LEN + 2) /* Ethernet frame header size: Dest addr(6 Bytes) + Src addr(6 Bytes) + length/type(2 Bytes) */
+#define ETH_VLAN_TAG_LEN        (4)  /* Optional 802.1q VLAN Tag length */
+#define ETH_CRC_LEN             (4)  /* Ethernet frame CRC length */
+
+#define ETH_PAYLOAD_MAX_LEN     (1500)     /*< Ethernet maximum payload size (bytes) */
+#define ETH_PAYLOAD_MIN_LEN     (46)       /* Minimum Ethernet payload size */
+#define ETH_JUMBO_FRAME_PAYLOAD_LEN (16*1024) /* Jumbo frame payload size */
+
+#define ETH_PKT_MAX_SIZE        (ETH_HEADER_LEN + ETH_VLAN_TAG_LEN + ETH_PAYLOAD_MAX_LEN + ETH_CRC_LEN) /* Maximum frame size (1522 Bytes) */
+
 /// Defines the delay period when checking the own bit of the Tx/Rx descriptors
 #define ETH_OWN_BIT_UPDATE_PERIOD       10
 /// Defines the max. timeout value when checking the flag of MDIO operations
@@ -2369,24 +2377,28 @@ typedef struct {
   \brief  Defines FEMAC Tx command descriptor
 */
 #define FEMAC_TX_DSC_SHIFT_OWN          31
-#define FEMAC_TX_DSC_BIT_OWN            ((u32)0x00000001 << 31)
+#define FEMAC_TX_DSC_BIT_OWN            ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_OWN)
 #define FEMAC_TX_DSC_SHIFT_EOR          30
-#define FEMAC_TX_DSC_BIT_EOR            ((u32)0x00000001 << 30)
+#define FEMAC_TX_DSC_BIT_EOR            ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_EOR)
 #define FEMAC_TX_DSC_SHIFT_FS           29
-#define FEMAC_TX_DSC_BIT_FS             ((u32)0x00000001 << 29)
+#define FEMAC_TX_DSC_BIT_FS             ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_FS)
 #define FEMAC_TX_DSC_SHIFT_LS           28
-#define FEMAC_TX_DSC_BIT_LS             ((u32)0x00000001 << 28)
+#define FEMAC_TX_DSC_BIT_LS             ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_LS)
+#define FEMAC_TX_DSC_SHIFT_IPCS         27
+#define FEMAC_TX_DSC_BIT_IPCS           ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_IPCS)
+#define FEMAC_TX_DSC_SHIFT_L4CS         26
+#define FEMAC_TX_DSC_BIT_L4CS           ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_L4CS)
 #define FEMAC_TX_DSC_SHIFT_CRC          23
-#define FEMAC_TX_DSC_BIT_CRC            ((u32)0x00000001 << 23)
-
+#define FEMAC_TX_DSC_BIT_CRC            ((u32)0x00000001 << FEMAC_TX_DSC_SHIFT_CRC)
+#define FEMAC_TX_DSC_BIT_SIZE(dw1)     ((u32)((dw1) & 0x1FFFF))
 /**
   \brief  Defines FEMAC Rx command descriptor
 */
 #define FEMAC_RX_DSC_SHIFT_OWN          31
-#define FEMAC_RX_DSC_BIT_OWN            ((u32)0x00000001 << 31)
+#define FEMAC_RX_DSC_BIT_OWN            ((u32)0x00000001 << FEMAC_RX_DSC_SHIFT_OWN)
 #define FEMAC_RX_DSC_SHIFT_EOR          30
-#define FEMAC_RX_DSC_BIT_EOR            ((u32)0x00000001 << 30)
-
+#define FEMAC_RX_DSC_BIT_EOR            ((u32)0x00000001 << FEMAC_RX_DSC_SHIFT_EOR)
+#define FEMAC_RX_DSC_LEN(dw1)           ((u32)((dw1) & 0x0FFF))
 /**
   \brief  Defines FEPHY register page number
 */
@@ -2421,6 +2433,11 @@ typedef struct {
 /**
   * @}
   */
+
+/**
+  \brief  Defines MDIO Wait Time(us)
+*/
+#define MDIO_WAIT_TIME (64)
 
 /**
   \brief  Defines the FEPHY register address
@@ -2747,8 +2764,8 @@ void Ethernet_SetDescAddr(ETH_InitTypeDef *ETH_InitStruct);
 void Ethernet_SetMacAddr(u8 *ETH_MacAddr);
 void Ethernet_StructInit(ETH_InitTypeDef *ETH_InitStruct);
 u32 Ethernet_init(ETH_InitTypeDef *ETH_InitStruct);
-u16 Ethernet_Read_PhyReg(u16 page, u16 reg_addr);
-u32 Ethernet_Write_PhyReg(u16 page, u16 reg_addr, u16 data);
+int Ethernet_ReadPhyReg(uint8_t phy_id, uint8_t reg_addr, uint16_t *data);
+int Ethernet_WritePhyReg(uint8_t phy_id, uint8_t reg_addr, uint16_t data);
 u32 Ethernet_GetLinkStatus(void);
 void Ethernet_SetRefclkDirec(u32 refclk_mode);
 void Ethernet_OutputClk2Phy(u32 pin);

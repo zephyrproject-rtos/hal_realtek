@@ -27,7 +27,6 @@ static u32 SD_WideBus_Disable(SD_HdlTypeDef *hsd);
 static u32 SD_GetCardSCR(SD_HdlTypeDef *hsd);
 static void SD_Write_IT(SD_HdlTypeDef *hsd);
 static void SD_Read_IT(SD_HdlTypeDef *hsd);
-static u32 SD_IRQHandler(void *pData);
 
 static u8 is_timeout(u32 start_us, u32 timeout_us)
 {
@@ -128,7 +127,7 @@ static void SDIOH_Pinmux(void)
 	}
 }
 
-static void SD_PreDMATrans(SD_HdlTypeDef *hsd)
+void SD_PreDMATrans(SD_HdlTypeDef *hsd)
 {
 	if ((CPU_InInterrupt() == 0) && (rtos_sched_get_state() == RTOS_SCHED_RUNNING) && (sd_sema_take_fn != NULL)) {
 		wait_for_sema = 1;
@@ -274,7 +273,7 @@ SD_RESULT SD_Init(void)
 
 		/* Wait until func1 is ready */
 		while (1) {
-			ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_IORDY, NULL, &val);
+			ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_IORDY, (u8)0x0, &val);
 			if (ret != SD_OK) {
 				return SD_ERROR;
 			}
@@ -470,10 +469,12 @@ static SD_RESULT SD_InitCard(SD_HdlTypeDef *hsd)
 
 	/* Send CMD3 SET_REL_ADDR with argument 0 */
 	/* CMD3: SD Card publishes its RCA. */
-	errorstate = SDMMC_CmdSetRelAdd(SDIOx, &sd_rca);
+	errorstate = SDMMC_CmdSetRelAdd(SDIOx);
 	if (errorstate != SD_ERROR_NONE) {
 		hsd->ErrorCode |= errorstate;
 		return SD_ERROR;
+	} else {
+		sd_rca = SDIO_GetResponse(SDIOx, SDIO_RESP0) >> 16;
 	}
 
 	/* Get the SD card RCA */
@@ -1733,7 +1734,7 @@ __weak void SD_IRQ_NOTIFY(void)
  * @param  hsd: Pointer to SD handle
  * @retval None
  */
-static u32 SD_IRQHandler(void *pData)
+u32 SD_IRQHandler(void *pData)
 {
 	SD_HdlTypeDef *hsd = (SD_HdlTypeDef *)pData;
 	SDIOHOST_TypeDef *SDIOx = hsd->Instance;
@@ -2106,7 +2107,7 @@ static SD_RESULT SD_SendSDStatus(SD_HdlTypeDef *hsd, u32 *pSDstatus)
 	/* Configure the SD DPSM (Data Path State Machine) */
 	config.TransType = SDIO_TRANS_SINGLE_BLK;
 	config.TransDir = SDIO_TRANS_CARD_TO_HOST;
-	config.BlockSize = 512U;
+	config.BlockSize = 64U; // 512bit/8
 	config.BlockCnt = 1U; // DON'T CARE
 	config.AutoCmdEn = SDIO_TRANS_AUTO_DIS;
 	config.DmaEn = SDIO_TRANS_DMA_DIS;
@@ -2319,7 +2320,7 @@ SD_RESULT SD_ConfigBusSpeed(SD_HdlTypeDef *hsd, u8 BusSpeed)
 
 	if (BusSpeed == SD_SPEED_HS) {
 		if (hsd->Card.CardType == CARD_SDIO_ONLY) {
-			ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_SPEED_CONTROL, NULL, &val);
+			ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_SPEED_CONTROL, (u8)0x0, &val);
 			if (ret != SD_OK) {
 				return ret;
 			}
@@ -2348,7 +2349,7 @@ SD_RESULT SD_ConfigBusSpeed(SD_HdlTypeDef *hsd, u8 BusSpeed)
 		}
 	} else if (BusSpeed == SD_SPEED_DS) {
 		if (hsd->Card.CardType == CARD_SDIO_ONLY) {
-			ret = SD_IO_RW_Direct(hsd, BUS_WRITE, SDIO_FUNC0, SDIOD_CCCR_SPEED_CONTROL, 0x0, &val);
+			ret = SD_IO_RW_Direct(hsd, BUS_WRITE, SDIO_FUNC0, SDIOD_CCCR_SPEED_CONTROL, (u8)0x0, &val);
 			if (ret != SD_OK) {
 				return ret;
 			}
@@ -2453,7 +2454,7 @@ static u32 SD_WideBus_Enable(SD_HdlTypeDef *hsd)
 
 	if (hsd->Card.CardType == CARD_SDIO_ONLY) {
 
-		ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_BICTRL, NULL, &val);
+		ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_BICTRL, (u8)0x0, &val);
 		if (ret != SD_OK) {
 			return SD_ERROR;
 		}
@@ -2506,7 +2507,7 @@ static u32 SD_WideBus_Disable(SD_HdlTypeDef *hsd)
 
 	if (hsd->Card.CardType == CARD_SDIO_ONLY) {
 
-		ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_BICTRL, NULL, &val);
+		ret = SD_IO_RW_Direct(hsd, BUS_READ, SDIO_FUNC0, SDIOD_CCCR_BICTRL, (u8)0x0, &val);
 		if (ret != SD_OK) {
 			return SD_ERROR;
 		}
@@ -2550,10 +2551,8 @@ static u32 SD_GetCardSCR(SD_HdlTypeDef *hsd)
 	SDIOHOST_TypeDef *SDIOx = hsd->Instance;
 	SDIO_DataInitTypeDef config;
 	u32 errorstate;
-	u32 tickstart = DTimestamp_Get();
-	u32 index = 0U;
-	u32 tempscr[2U] = {0U, 0U};
-	u32 dataremaining;
+	/* 32byte for cache operation, only the first 2bytes are valid */
+	u32 tempscr[8]__attribute__((aligned(32))) = {0U};
 
 	// avoid crc_err_sts is set during ACMD51
 	SDIO_ConfigErrIntSts(SDIOx, SDIOHOST_BIT_DATA_CRC_ERR_STATUS_EN, DISABLE);
@@ -2569,8 +2568,16 @@ static u32 SD_GetCardSCR(SD_HdlTypeDef *hsd)
 	config.BlockSize = 8U; // 64bit/8
 	config.BlockCnt = 0U; // DON'T CARE when TRANS_SINGLE_BLK
 	config.AutoCmdEn = SDIO_TRANS_AUTO_DIS;
-	config.DmaEn = SDIO_TRANS_DMA_DIS;
+	config.DmaEn = SDIO_TRANS_DMA_EN;
 	SDIO_ConfigData(SDIOx, &config);
+
+	errorstate = SDIO_ConfigDMA(SDIOx, SDIO_SDMA_MODE, (u32)tempscr);
+	if (errorstate != HAL_OK) {
+		hsd->ErrorCode |= SD_ERROR_INVALID_PARAMETER;
+		hsd->State = SD_STATE_READY;
+		return SD_ERROR;
+	}
+	SD_PreDMATrans(hsd);
 
 	/* Send ACMD51 SD_APP_SEND_SCR with argument as 0 */
 	errorstate = SDMMC_CmdSendSCR(SDIOx);
@@ -2578,25 +2585,12 @@ static u32 SD_GetCardSCR(SD_HdlTypeDef *hsd)
 		return errorstate;
 	}
 
-	dataremaining = 8U; // size of SCR: 8Bytes
-
-	/* SDIOHOST_BIT_XFER_COMPLETE will not be set under this case */
-	while (!((SDIO_GetErrSts(SDIOx) & SDIO_DAT_ERR))) {
-
-		if (dataremaining  == 0U) {
-			break;
-		}
-
-		if ((SDIO_GetStatus(SDIOx) & SDIOHOST_BIT_BUFF_READ_EN) && (dataremaining > 0U)) {
-			*(tempscr + index) = SDIO_ReadFIFO(SDIOx);
-			index++;
-			dataremaining -= 4U;
-		}
-
-		if (is_timeout(tickstart, SDMMC_DAT_TIMEOUT)) {
-			return SD_ERROR_TIMEOUT;
-		}
+	if (SD_WaitTransDone(hsd, SDMMC_DAT_TIMEOUT) != HAL_OK) {
+		RTK_LOGE(TAG, "%s WaitTransDone error!\n", __FUNCTION__);
+		return SD_ERROR;
 	}
+
+	DCache_Invalidate((u32)tempscr, sizeof(tempscr));
 
 	if (SDIO_GetErrSts(SDIOx) & SDIOHOST_BIT_DATA_TIMEOUT_ERR) {
 		SDIO_ClearErrSts(SDIOx, SDIOHOST_BIT_DATA_TIMEOUT_ERR);

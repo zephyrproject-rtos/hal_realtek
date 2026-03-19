@@ -28,8 +28,8 @@ typedef struct {
   */
 #define SAU_INIT_CTRL_ALLNS  0
 
-#define SAU_ENTRYS_NUM			8
-#define IDAU_ENTRYS_NUM		8
+#define SAU_ENTRY_NUM			8
+#define IDAU_ENTRY_NUM		8
 
 void BOOT_RAM_TZCfg(void);
 

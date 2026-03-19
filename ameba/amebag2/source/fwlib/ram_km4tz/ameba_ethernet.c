@@ -189,7 +189,7 @@ void Ethernet_AutoPolling(u32 opt)
 u8 *Ethernet_GetTXPktInfo(ETH_InitTypeDef *ETH_InitStruct)
 {
 	ETHERNET_TypeDef *RMII = ((ETHERNET_TypeDef *) RMII_REG_BASE);
-	u8 tx_search_idx = ETH_InitStruct->ETH_TxDescCurrentNum;
+	u8 tx_idx = ETH_InitStruct->ETH_TxDescCurrentNum;
 	u8 *buf = NULL;
 
 	if (ETH_InitStruct == NULL) {
@@ -198,13 +198,10 @@ u8 *Ethernet_GetTXPktInfo(ETH_InitTypeDef *ETH_InitStruct)
 	}
 
 	/* check if current Tx descriptor is available */
-	if ((((u32)(ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw1)) & FEMAC_TX_DSC_BIT_OWN) == 0) {
-		buf = (u8 *)ETH_InitStruct->ETH_TxDesc[tx_search_idx].addr;
+	if ((((u32)(ETH_InitStruct->ETH_TxDesc[tx_idx].dw1)) & FEMAC_TX_DSC_BIT_OWN) == 0) {
+		buf = (u8 *)ETH_InitStruct->ETH_TxDesc[tx_idx].addr;
 	} else {
 		RMII->ETH_ISR_AND_IMR |= BIT_ISR_TOK_TI;
-		/* enable Tx ring1 */
-		//RMII->ETH_ETHER_IO_CMD |= BIT_TXFN1ST;
-		//RTK_LOGE(TAG, "Tx descriptor ring is full !!\r\n");
 	}
 
 	return buf;
@@ -221,7 +218,7 @@ u8 *Ethernet_GetTXPktInfo(ETH_InitTypeDef *ETH_InitStruct)
 void Ethernet_UpdateTXDESCAndSend(ETH_InitTypeDef *ETH_InitStruct, u32 size)
 {
 	ETHERNET_TypeDef *RMII = ((ETHERNET_TypeDef *) RMII_REG_BASE);
-	u8 tx_search_idx = ETH_InitStruct->ETH_TxDescCurrentNum;
+	u8 tx_idx = ETH_InitStruct->ETH_TxDescCurrentNum;
 
 	if (ETH_InitStruct == NULL) {
 		RTK_LOGE(TAG, "Invalid parameter !!\r\n");
@@ -233,23 +230,26 @@ void Ethernet_UpdateTXDESCAndSend(ETH_InitTypeDef *ETH_InitStruct, u32 size)
 		return;
 	}
 
-	DCache_Clean((u32)ETH_InitStruct->ETH_TxDesc[tx_search_idx].addr, (u32)ETH_PKT_BUFF_SZ); //TODO: need invalidate or not
+	DCache_Clean((u32)ETH_InitStruct->ETH_TxDesc[tx_idx].addr, (u32)size); //TODO: need invalidate or not
 
-	ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw2 = 0;
-	ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw3 = 0;
-	ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw4 = 0;
+	ETH_InitStruct->ETH_TxDesc[tx_idx].dw2 = 0;
+	ETH_InitStruct->ETH_TxDesc[tx_idx].dw3 = 0;
+	ETH_InitStruct->ETH_TxDesc[tx_idx].dw4 = 0;
 
-	if (tx_search_idx == ((ETH_InitStruct->ETH_TxDescNum) - 1)) {
-		ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw1 = (FEMAC_TX_DSC_BIT_EOR | FEMAC_TX_DSC_BIT_FS | FEMAC_TX_DSC_BIT_LS | FEMAC_TX_DSC_BIT_CRC | (size & 0x1ffff));
+	if (tx_idx == ((ETH_InitStruct->ETH_TxDescNum) - 1)) {
+		ETH_InitStruct->ETH_TxDesc[tx_idx].dw1 = FEMAC_TX_DSC_BIT_EOR | FEMAC_TX_DSC_BIT_FS | FEMAC_TX_DSC_BIT_IPCS | \
+				FEMAC_TX_DSC_BIT_L4CS | FEMAC_TX_DSC_BIT_LS | FEMAC_TX_DSC_BIT_CRC | \
+				FEMAC_TX_DSC_BIT_SIZE(size);
 	} else {
-		ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw1 = (FEMAC_TX_DSC_BIT_FS | FEMAC_TX_DSC_BIT_LS | FEMAC_TX_DSC_BIT_CRC | (size & 0x1ffff));
+		ETH_InitStruct->ETH_TxDesc[tx_idx].dw1 = FEMAC_TX_DSC_BIT_FS | FEMAC_TX_DSC_BIT_LS | FEMAC_TX_DSC_BIT_IPCS | \
+				FEMAC_TX_DSC_BIT_L4CS | FEMAC_TX_DSC_BIT_CRC | FEMAC_TX_DSC_BIT_SIZE(size);
 	}
-	ETH_InitStruct->ETH_TxDesc[tx_search_idx].dw1 |= FEMAC_TX_DSC_BIT_OWN;
+	ETH_InitStruct->ETH_TxDesc[tx_idx].dw1 |= FEMAC_TX_DSC_BIT_OWN;
 
 	RMII->ETH_ISR_AND_IMR |= BIT_ISR_TOK_TI;
 	RMII->ETH_ETHER_IO_CMD |= BIT_TXFN1ST; //TODO: not need set for each pkt
 
-	if (tx_search_idx == ((ETH_InitStruct->ETH_TxDescNum) - 1)) {
+	if (tx_idx == ((ETH_InitStruct->ETH_TxDescNum) - 1)) {
 		ETH_InitStruct->ETH_TxDescCurrentNum = 0;
 	} else {
 		ETH_InitStruct->ETH_TxDescCurrentNum++;
@@ -267,19 +267,20 @@ void Ethernet_UpdateTXDESCAndSend(ETH_InitTypeDef *ETH_InitStruct, u32 size)
 u8 *Ethernet_GetRXPktInfo(ETH_InitTypeDef *ETH_InitStruct, u32 *rx_len)
 {
 	ETHERNET_TypeDef *RMII = ((ETHERNET_TypeDef *) RMII_REG_BASE);
-	u8 rx_search_idx = ETH_InitStruct->ETH_RxDescCurrentNum;
+	u32 pkt_size = 0;
+	u8 rx_idx = ETH_InitStruct->ETH_RxDescCurrentNum;
 	u8 *buf = NULL;
 
 	/* check if current Rx descriptor is available */
-	if ((((volatile u32)(ETH_InitStruct->ETH_RxDesc[rx_search_idx].dw1)) & FEMAC_TX_DSC_BIT_OWN) == 0) {
-		*rx_len = (ETH_InitStruct->ETH_RxDesc[rx_search_idx].dw1) & 0xFFF;
-		buf = (u8 *)(ETH_InitStruct->ETH_RxDesc[rx_search_idx].addr + 2);
-		DCache_Invalidate((u32)(ETH_InitStruct->ETH_RxDesc[rx_search_idx].addr), (u32)ETH_PKT_BUFF_SZ);
+	if ((((volatile u32)(ETH_InitStruct->ETH_RxDesc[rx_idx].dw1)) & FEMAC_RX_DSC_BIT_OWN) == 0) {
+		pkt_size = FEMAC_RX_DSC_LEN(ETH_InitStruct->ETH_RxDesc[rx_idx].dw1);
+		buf = (u8 *)(ETH_InitStruct->ETH_RxDesc[rx_idx].addr + 2);
+		DCache_Invalidate((u32)(ETH_InitStruct->ETH_RxDesc[rx_idx].addr), (u32)pkt_size);
 	} else {
 		RMII->ETH_ISR_AND_IMR |= BIT_ISR_ROK;
-		*rx_len = 0;
-		return 0;
 	}
+
+	*rx_len = pkt_size;
 
 	return buf;
 }
@@ -302,8 +303,8 @@ void Ethernet_UpdateRXDESC(ETH_InitTypeDef *ETH_InitStruct)
 	}
 
 
-	ETH_InitStruct->ETH_RxDesc[read_idx].dw1 &= FEMAC_TX_DSC_BIT_EOR;//? clear
-	ETH_InitStruct->ETH_RxDesc[read_idx].dw1 |= (FEMAC_TX_DSC_BIT_OWN | ETH_PKT_BUFF_SZ);//1600
+	ETH_InitStruct->ETH_RxDesc[read_idx].dw1 &= FEMAC_RX_DSC_BIT_EOR;
+	ETH_InitStruct->ETH_RxDesc[read_idx].dw1 |= (FEMAC_RX_DSC_BIT_OWN | ETH_InitStruct->ETH_RxBufSize);
 	ETH_InitStruct->ETH_RxDesc[read_idx].dw2 = 0;
 	ETH_InitStruct->ETH_RxDesc[read_idx].dw3 = 0;
 
@@ -370,75 +371,81 @@ u8 Ethernet_WaitBusy(u32 WaitType)
 }
 
 /**
- *  @brief To read the specified FEPHY register
- *
- *  @param[in]  page The specified page number.
- *  @param[in]  reg_addr The specified register address.
- *
- *  @returns    The register value.
+ * @brief Waits for the PHY MDIO bus to become idle.
+ *        This function polls the MDIO busy flag until it is cleared or a timeout occurs.
+ * @param RMII         Pointer to the Ethernet MAC register structure.
+ * @param timeout_us   Timeout threshold in microseconds.
+ * @return 0 on success (MDIO idle), -1 on timeout.
  */
-u16 Ethernet_Read_PhyReg(u16 page, u16 reg_addr)
+static inline int Ethernet_WaitPhyIdle(ETHERNET_TypeDef *RMII, uint32_t timeout_us)
 {
-	ETHERNET_TypeDef *RMII = ((ETHERNET_TypeDef *) RMII_REG_BASE);
-	u16 rd_data = 0;
-
-	while (RMII->ETH_MIIAR & BIT_MDIO_BUSY);
-
-	if (reg_addr > 0x1F) {
-		RTK_LOGE(TAG, "Invalid parameter !!\r\n");
-		return 0;
+	uint32_t start = DTimestamp_Get();
+	while ((DTimestamp_Get() - start) <= timeout_us) {
+		if (!(RMII->ETH_MIIAR & BIT_MDIO_BUSY)) {
+			return RTK_SUCCESS;
+		}
+	}
+	return -RTK_ERR_TIMEOUT;
+}
+/**
+ * @brief Reads a 16-bit value from a PHY register via MDIO.
+ * @param phy_id     Physical address of the target PHY.
+ * @param reg_addr   Register address (0~31).
+ * @param data       Output pointer to store the read value.
+ * @return 0 (RTK_SUCCESS) on success, negative value on error.
+ */
+int Ethernet_ReadPhyReg(uint8_t phy_id, uint8_t reg_addr, uint16_t *data)
+{
+	ETHERNET_TypeDef *RMII = (ETHERNET_TypeDef *) RMII_REG_BASE;
+	if (TrustZone_IsSecure()) {
+		RMII = (ETHERNET_TypeDef *) RMII_REG_BASE_S;
+	}
+	if (reg_addr > FEPHY_REG_ADDR_31) {
+		return -RTK_FAIL;
 	}
 
-	// Switch to the specified page by register 31
-	RMII->ETH_MIIAR = (BIT_FLAG | PHYADDRESS(phy_id) | REGADDR4_0(0x1F) | page);
-	DelayUs(70);  // wait for command complete
-
-	Ethernet_WaitBusy(WAIT_SMI_WRITE_DONE);
+	if (Ethernet_WaitPhyIdle(RMII, MDIO_WAIT_TIME) != RTK_SUCCESS) {
+		return -RTK_ERR_BUSY;
+	}
 
 	RMII->ETH_MIIAR = (PHYADDRESS(phy_id) | REGADDR4_0(reg_addr));
-	DelayUs(70);  // wait for command complete
 
+	if (Ethernet_WaitPhyIdle(RMII, MDIO_WAIT_TIME) != RTK_SUCCESS) {
+		return -RTK_ERR_BUSY;
+	}
 
-	Ethernet_WaitBusy(WAIT_SMI_READ_DONE);
-	rd_data = (u16)(RMII->ETH_MIIAR & 0xFFFF);
+	*data = (uint16_t)GET_DATA15_0(RMII->ETH_MIIAR);
 
-
-	return rd_data;
+	return RTK_SUCCESS;
 }
 
 
 /**
- *  @brief To write "data" value to the specified FEPHY register
- *  @param[in]  page The specified page number.
- *  @param[in]  reg_addr The specified register address.
- *  @param[in]  data The specified data value.
- *
- *  @returns    0.
+ * @brief Writes a 16-bit value to a PHY register via MDIO.
+ * @param phy_id    Physical address of the target PHY (refer to datasheet, usually from hardware pins).
+ * @param reg_addr  Register address (0~31, according to IEEE 802.3 standard).
+ * @param data      The value to write.
+ * @return 0 (RTK_SUCCESS) on success, negative value on error.
  */
-u32 Ethernet_Write_PhyReg(u16 page, u16 reg_addr, u16 data)
+int Ethernet_WritePhyReg(uint8_t phy_id, uint8_t reg_addr, uint16_t data)
 {
-	ETHERNET_TypeDef *RMII = ((ETHERNET_TypeDef *) RMII_REG_BASE);
-
-	if (reg_addr > 0x1F) {
-		RTK_LOGE(TAG, "Invalid parameter !!\r\n");
-		return 0;
+	ETHERNET_TypeDef *RMII = (ETHERNET_TypeDef *) RMII_REG_BASE;
+	if (TrustZone_IsSecure()) {
+		RMII = (ETHERNET_TypeDef *) RMII_REG_BASE_S;
+	}
+	if (reg_addr > FEPHY_REG_ADDR_31) {
+		return -RTK_FAIL;
 	}
 
-	while (RMII->ETH_MIIAR & BIT_MDIO_BUSY);
-
-	// Switch to the specified page by register 31
-	RMII->ETH_MIIAR = (BIT_FLAG | PHYADDRESS(phy_id) | BIT_DISABLE_AUTO_POLLING | REGADDR4_0(0x1F) | page);
-	DelayUs(70);  // wait for command complete
-
-	Ethernet_WaitBusy(WAIT_SMI_WRITE_DONE);
+	if (Ethernet_WaitPhyIdle(RMII, MDIO_WAIT_TIME) != RTK_SUCCESS) {
+		return -RTK_ERR_BUSY;
+	}
 
 	RMII->ETH_MIIAR = (BIT_FLAG | BIT_DISABLE_AUTO_POLLING | PHYADDRESS(phy_id) | REGADDR4_0(reg_addr) | data);
-	DelayUs(70);  // wait for command complete
 
-	Ethernet_WaitBusy(WAIT_SMI_WRITE_DONE);
-
-	return 0;
+	return RTK_SUCCESS;
 }
+
 
 /**
   * \brief  Enable ethernet RX.
@@ -496,11 +503,12 @@ void Ethernet_StructInit(ETH_InitTypeDef *ETH_InitStruct)
 	ETH_InitStruct->ETH_TxDescCurrentNum = 0;
 	ETH_InitStruct->ETH_RxFrameStartDescIdx = 0;
 	ETH_InitStruct->ETH_RxFrameLen = 0;
+	ETH_InitStruct->ETH_TxFrameLen = 0;
 	ETH_InitStruct->ETH_RxSegmentCount = 0;
 	ETH_InitStruct->ETH_TxAllocBufSize = 1600;
 	ETH_InitStruct->ETH_RxAllocBufSize = 1600;
-	ETH_InitStruct->ETH_TxBufSize = 1524;
-	ETH_InitStruct->ETH_RxBufSize = 1524;
+	ETH_InitStruct->ETH_TxBufSize = ETH_PKT_MAX_SIZE;
+	ETH_InitStruct->ETH_RxBufSize = ETH_PKT_MAX_SIZE;
 }
 
 u32 Ethernet_init(ETH_InitTypeDef *ETH_InitStruct)
@@ -522,35 +530,39 @@ u32 Ethernet_init(ETH_InitTypeDef *ETH_InitStruct)
 	} while (RMII->ETH_CR & BIT_RST);
 
 	/* reset phy */
-	PHY_SW_RESET();
+	PHY_SoftWareReset(PHYID_1);
 
-	DelayMs(200);
+	PHY_SetRefclkDir(PHYID_1, ETH_InitStruct->ETH_RefClkDirec);
 
-	PHY_SET_REFCLK_DIR(RTL_8721F, ETH_InitStruct->ETH_RefClkDirec);
+#ifdef ENABLE_EEE_FUNCTION
+	PHY_SetEEEMode(PHYID_1, ETH_MAC_MODE);
+#endif
 
 #ifdef CHECK_PHY_STATUS
-	u32 tmp;
-	tmp = Ethernet_Read_PhyReg(FEPHY_REG_ADDR_0, FEPHY_REG_ADDR_0);
+	uint16_t tmp;
+	/*select page 0*/
+	Ethernet_WritePhyReg(PHYID_1, FEPHY_REG_ADDR_31, FEPHY_REG_PAGE_0);
+
+	Ethernet_ReadPhyReg(PHYID_1, FEPHY_REG_ADDR_0, &tmp);
 	RTK_LOGI(TAG, "page0 reg0=0x%x\n", tmp);
 
-	tmp = Ethernet_Read_PhyReg(FEPHY_REG_ADDR_0, FEPHY_REG_ADDR_1);
+	Ethernet_ReadPhyReg(PHYID_1, FEPHY_REG_ADDR_1, &tmp);
 	RTK_LOGI(TAG, "page0 reg1=0x%x\n", tmp);
 
-	tmp = Ethernet_Read_PhyReg(FEPHY_REG_ADDR_0, FEPHY_REG_ADDR_2);
+	Ethernet_ReadPhyReg(PHYID_1, FEPHY_REG_ADDR_2, &tmp);
 	RTK_LOGI(TAG, "page0 reg2=0x%x\n", tmp);
 
-	tmp = Ethernet_Read_PhyReg(FEPHY_REG_ADDR_0, FEPHY_REG_ADDR_3);
+	Ethernet_ReadPhyReg(PHYID_1, FEPHY_REG_ADDR_3, &tmp);
 	RTK_LOGI(TAG, "page0 reg3=0x%x\n", tmp);
 
-	tmp = Ethernet_Read_PhyReg(FEPHY_REG_ADDR_7, FEPHY_REG_ADDR_16);
+	/*select page 7*/
+	Ethernet_WritePhyReg(PHYID_1, FEPHY_REG_ADDR_31, FEPHY_REG_ADDR_7);
+
+	Ethernet_ReadPhyReg(PHYID_1, RTL8201FR_PAGE7_REG_RMII_MODE_SET, &tmp);
 	RTK_LOGI(TAG, "page7 reg16=0x%x\n", tmp);
 
 #endif
-
-#ifdef ENABLE_EEE_FUNCTION
-	PHY_ENABLE_EEE(PHY_TYPE_SELECT, ENABLE);
-	PHY_SET_EEE_MODE(PHY_TYPE_SELECT, ETH_MAC_MODE);
-#endif
+	PHY_RestartAutoNego(PHYID_1);
 
 	/* Tx settings */
 
@@ -586,7 +598,7 @@ u32 Ethernet_init(ETH_InitTypeDef *ETH_InitStruct)
 	/* initialize Tx descriptors */
 	for (i = 0; i < (ETH_InitStruct->ETH_TxDescNum); i++) {
 		ETH_InitStruct->ETH_TxDesc[i].dw1 = 0;
-		ETH_InitStruct->ETH_TxDesc[i].addr = (u32)(ETH_InitStruct->ETH_TxPktBuf + (i * ETH_PKT_BUFF_SZ));
+		ETH_InitStruct->ETH_TxDesc[i].addr = (u32)(ETH_InitStruct->ETH_TxPktBuf + (i * ETH_InitStruct->ETH_TxBufSize));
 		ETH_InitStruct->ETH_TxDesc[i].dw2 = 0;//(eth_vlan_hdr_remove << 25) | (ETH_C_VLAN_HDR & 0xFFFF);
 		ETH_InitStruct->ETH_TxDesc[i].dw3 = 0;
 		ETH_InitStruct->ETH_TxDesc[i].dw4 = 0;
@@ -595,11 +607,11 @@ u32 Ethernet_init(ETH_InitTypeDef *ETH_InitStruct)
 	/* initialize Rx descriptors */
 	for (i = 0; i < (ETH_InitStruct->ETH_RxDescNum); i++) {
 		if (i == ((ETH_InitStruct->ETH_RxDescNum) - 1)) {
-			ETH_InitStruct->ETH_RxDesc[i].dw1 = BIT31 | BIT30 | ETH_PKT_BUFF_SZ;
+			ETH_InitStruct->ETH_RxDesc[i].dw1 = FEMAC_RX_DSC_BIT_OWN | FEMAC_RX_DSC_BIT_EOR | ETH_InitStruct->ETH_RxBufSize;
 		} else {
-			ETH_InitStruct->ETH_RxDesc[i].dw1 = BIT31 | ETH_PKT_BUFF_SZ;
+			ETH_InitStruct->ETH_RxDesc[i].dw1 = FEMAC_RX_DSC_BIT_OWN | ETH_InitStruct->ETH_RxBufSize;
 		}
-		ETH_InitStruct->ETH_RxDesc[i].addr = (u32)(ETH_InitStruct->ETH_RxPktBuf + (i * ETH_PKT_BUFF_SZ));
+		ETH_InitStruct->ETH_RxDesc[i].addr = (u32)(ETH_InitStruct->ETH_RxPktBuf + (i * ETH_InitStruct->ETH_RxBufSize));
 		ETH_InitStruct->ETH_RxDesc[i].dw2 = 0;
 		ETH_InitStruct->ETH_RxDesc[i].dw3 = 0;
 	}
