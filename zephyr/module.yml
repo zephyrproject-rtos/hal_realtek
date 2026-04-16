@@ -514,3 +514,24 @@ blobs:
     url: https://github.com/rtkconnectivity/realtek-zephyr-project/raw/refs/tags/v3.7-rtk-00.01.01/bin/rtl8752h/single_bank/bt_stack_patch_MP_master_0.0.145.0_ab89e0d5-982493ffb677098b7f324aef124f9554.bin
     description: "BT stack patch bank0"
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
+  - path: bee/drivers/rtl8752h/adc/librtl8752h_adc.a
+    sha256: 0fb11b9efd9877e1821a8ba4de1d8a1da4dd42600c82aa2357425b048788bf12
+    type: lib
+    version: '1.3.0'
+    license-path: LICENSE
+    url: https://github.com/rtkconnectivity/rtl8752h_sdk/raw/refs/heads/v1.3.0/bin/gcc/adc.a
+    description: "Precompiled ADC library for RTL8752H."
+  - path: bee/drivers/rtl87x2g/adc/librtl87x2g_adc.a
+    sha256: cd056d020b5b1d9dd1a4417c2afad6ea65e19241e4ebee780616b08872c10355
+    type: lib
+    version: '0.0'
+    license-path: LICENSE
+    url: https://github.com/rtkconnectivity/rtl87x2g_sdk/raw/refs/heads/main/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_adc.a
+    description: "Precompiled ADC library for RTL87X2G."
+  - path: bee/drivers/rtl87x2g/can/librtl87x2g_can.a
+    sha256: a490bbd7a99f8c5d4cb9a81a6208ba274bb58e090c0aee985bc2a6f85512e810
+    type: lib
+    version: '0.0'
+    license-path: LICENSE
+    url: https://github.com/rtkconnectivity/rtl87x2g_sdk/raw/refs/heads/main/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_can.a
+    description: "Precompiled CAN library for RTL87X2G."
