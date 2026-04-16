@@ -9,6 +9,7 @@
  *============================================================================*/
 #include "rtl_adc.h"
 #include "rtl_rcc.h"
+#include "stdbool.h"
 #include "app_section.h"
 
 /*============================================================================*
@@ -19,7 +20,29 @@
 #define LPC_AON_AUXADC                      ((AON_NS_REG0X_SD_TYPE *)0x40001B98UL)
 #define PERI_ON_AUDIO_CLOCK_CTRL            *((volatile uint32_t *)PERIBLKCTRL_AUDIO_REG_BASE)
 
-extern void force_vddcore_1v2_for_auxadc(bool enable);
+typedef enum
+{
+    AUTO_SWITCH_TABLE0_IDLE_MODE            = 0,
+    AUTO_SWITCH_TABLE1_XTAL_MODE_TRANSITION = 1,
+    AUTO_SWITCH_TABLE2_TXAFE1_TRX_MODE      = 2,
+    AUTO_SWITCH_TABLE3_TXAFE2_TRX_MODE      = 3,
+    AUTO_SWITCH_TABLE4_TXAFE1_TX_4DBM_MODE  = 4,
+
+    AUTO_SWITCH_TABLE_MAX                   = 5,
+}
+AUTO_SWITCH_TABLE_TYPE;
+
+extern void (*pmu_auto_switch_map_force_base_level)(AUTO_SWITCH_TABLE_TYPE type, bool enable);
+
+void force_vddcore_1v2_for_auxadc(bool enable)
+{
+    static bool current_state = false;
+    if (current_state != enable)
+    {
+        pmu_auto_switch_map_force_base_level(AUTO_SWITCH_TABLE3_TXAFE2_TRX_MODE, enable);
+        current_state = enable;
+    }
+}
 /*============================================================================*
  *                           Public Functions
  *============================================================================*/

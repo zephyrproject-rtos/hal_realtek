@@ -19,6 +19,7 @@ extern "C" {
  *============================================================================*/
 #include "utils/rtl_utils.h"
 #include "rtl_adc_def.h"
+#include "adc_lib.h"
 
 /** \defgroup ADC         ADC
   * \brief

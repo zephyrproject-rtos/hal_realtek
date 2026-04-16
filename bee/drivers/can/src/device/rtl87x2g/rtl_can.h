@@ -227,7 +227,8 @@ typedef union
     struct
     {
         uint32_t can_ram_dlc: 4;        //!< The data length.
-        uint32_t can_ram_lost: 1;       //!< Value 1 indicates that data have lost in the read buffer, means more than one frame have beed received since last read.
+uint32_t can_ram_lost:
+        1;       //!< Value 1 indicates that data have lost in the read buffer, means more than one frame have beed received since last read.
         uint32_t can_ram_rxtx: 1;       //!< Can frame RX or TX, 0 is for RX, 1 is for TX.
         uint32_t can_ram_autoreply: 1;  //!< Set the message buffer with remote frame auto reply function.
         uint32_t RESERVED_1:  1;        //!< Reserved.
@@ -1666,3 +1667,4 @@ void CAN_ManualWakeup();
 }
 #endif
 #endif /* _RTL_CAN_H_ */
+

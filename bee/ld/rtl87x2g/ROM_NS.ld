@@ -147,4 +147,5 @@ SECTIONS
     PROVIDE(os_timer_stop = 0x0013e3b0);
     PROVIDE(os_unregister_pm_excluded_handle = 0x0013e3c0);
     PROVIDE(os_vector_table_update = 0x0013e3c4);
+    PROVIDE(pmu_auto_switch_map_force_base_level = 0x0013d944);
 }

@@ -228,6 +228,13 @@ typedef struct
   */
 
 /**
+  * \brief  Reset AON QDEC.
+  *
+  * \param[in]  None
+  */
+void AON_QDEC_DeInit(void);
+
+/**
  * \brief   Initialize the AON_QDEC peripheral according to the specified
  *          parameters in the AON_QDEC_InitStruct
  *

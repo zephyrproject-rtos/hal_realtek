@@ -177,3 +177,5 @@ extern void RCC_ClockGateCmd(uint32_t ClockGate, FunctionalState NewState);
 #endif
 
 #endif /* RTL_RCC_H */
+
+

@@ -13,6 +13,55 @@
  *                           Public Functions
  *============================================================================*/
 /**
+  * \brief  Reset AON QDEC.
+  * \param  None
+  * \return None
+  */
+void AON_QDEC_DeInit(void)
+{
+    AON_QDEC_CONFIG_TypeDef aon_qdec_0x00 = {.d32 = AON_QDEC->AON_QDEC_CONFIG};
+    /* Disable the AON QDEC. */
+    aon_qdec_0x00.b.x_axis_en = 0;
+
+    /* Disable the interrupt of AON QDEC. */
+    aon_qdec_0x00.b.x_cnt_int_en = 0;
+    aon_qdec_0x00.b.x_illegal_int_en = 0;
+
+    /* Mask the interrupt of AON QDEC. */
+    aon_qdec_0x00.b.cnt_int_mask = 1;
+    aon_qdec_0x00.b.illegal_int_mask = 1;
+    aon_qdec_0x00.b.x_int_mask = 1;
+    aon_qdec_0x00.b.x_wake_aon_mask = 1;
+
+    /* Disable the debounce function and clear the debounce time. */
+    aon_qdec_0x00.b.x_debounce_en = 0;
+    aon_qdec_0x00.b.x_debounce_cnt = 0;
+
+    /* Reset counter scale. */
+    aon_qdec_0x00.b.x_cnt_scale = 0;
+    AON_QDEC->AON_QDEC_CONFIG = aon_qdec_0x00.d32;
+    for (volatile uint32_t i = 0; i < 150; i++);
+
+    /* Set initial phase to 00. */
+    aon_qdec_0x00.b.x_set_initial_phase = 1;
+    aon_qdec_0x00.b.x_initial_phase = phaseMode0;
+    AON_QDEC->AON_QDEC_CONFIG = aon_qdec_0x00.d32;
+    for (volatile uint32_t i = 0; i < 150; i++);
+
+    aon_qdec_0x00.b.x_set_initial_phase = 0;
+    AON_QDEC->AON_QDEC_CONFIG = aon_qdec_0x00.d32;
+    for (volatile uint32_t i = 0; i < 150; i++);
+
+    /* Clear ACC counter and illegal counter. */
+    AON_QDEC_INT_CLR_TypeDef aon_qdec_0x08 = {.d32 = AON_QDEC->AON_QDEC_INT_CLR};
+    aon_qdec_0x08.b.acc_cnt_clr = 1;
+    aon_qdec_0x08.b.illegal_cnt_clr = 1;
+    AON_QDEC->AON_QDEC_INT_CLR = aon_qdec_0x08.d32;
+    for (volatile uint32_t i = 0; i < 150; i++);
+}
+
+
+/**
   * \brief  Initializes the AON Qdecoder peripheral according to the specified
   *         parameters in the AON_QDEC_InitStruct
   * \param  AON_QDECx: selected AON Qdecoder peripheral.
@@ -197,7 +246,7 @@ void AON_QDEC_INTMask(AON_QDEC_TypeDef *AON_QDECx, uint32_t AON_QDEC_AXIS,
 }
 
 /**
-  * \brief  Get AON Qdecoder Axis x direction.
+  * \brief  Enable or disable AON Qdecoder Axis x direction.
   * \param  AON_QDECx: selected AON Qdecoder peripheral.
   * \param  AON_QDEC_AXIS: specifies the AON Qdecoder axis.
   *         This parameter can be one of the following values:

@@ -68,4 +68,5 @@ SECTIONS
     PROVIDE(aes256_cbc_decrypt = 0x0001c431);
     PROVIDE(flash_nor_ioctl_buf = 0x0014f40c);
     PROVIDE(flash_nor_ioctl_buf_len = 0x0014f410);
+    PROVIDE(secure_function_call = 0x0001c3c1);
 }

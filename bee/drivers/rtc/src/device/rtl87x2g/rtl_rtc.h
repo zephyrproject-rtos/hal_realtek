@@ -115,7 +115,7 @@ typedef enum
  */
 #if (RTC_SUPPORT_PRE_COMP_OVF_TICK_WAKE_UP == 1)
 #define RTC_WK_TICK            BIT8     //!< RTC tick wakeup interrupt.
-#define RTC_WK_OVF             BIT9     //!< RTC overflow wakeup interrupt.
+#define RTC_WK_OVF             BIT9     //!< RTC overflow wakeup interrupt. 
 #define RTC_WK_PRE_COMP        BIT10    //!< RTC PRECOMP wakeup interrupt.
 #define RTC_WK_PRE_COMP3       BIT11    //!< RTC PRECOMP&CMP3 wakeup interrupt.
 
@@ -930,3 +930,6 @@ void RTC_ShortcutCmd(uint32_t Task, uint32_t Event, FunctionalState NewState);
 #endif
 
 #endif /* RTL_RTC_H */
+
+
+

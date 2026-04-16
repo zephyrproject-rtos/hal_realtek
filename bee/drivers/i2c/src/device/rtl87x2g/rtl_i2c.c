@@ -13,23 +13,32 @@
 /*============================================================================*
  *                           Private Functions
  *============================================================================*/
-#define I2C_5M_SOURCE_CLOCK_NS                                  (200)         // specify I2C 5MHz source clock, the unit is ns
-#define I2C_10M_SOURCE_CLOCK_NS                                 (100)         // specify I2C 10MHz source clock, the unit is ns
-#define I2C_20M_SOURCE_CLOCK_NS                                 (50)          // specify I2C 20MHz source clock, the unit is ns
-#define I2C_40M_SOURCE_CLOCK_NS                                 (25)          // specify I2C 40MHz source clock, the unit is ns
+/* I2C Data Cmd Mask */
+#define I2C_CMD_READ_BIT                             (BIT8)
+#define I2C_CMD_STOP_BIT                             (BIT9)
+#define I2C_CMD_RESTART_BIT                          (BIT10)
+
+/* SDA Setup Time */
+#define I2C_SDA_SETUP_TIME_VALUE                     (2)
+
+/* SCL Low/High Period Time */
 #define I2C_SCL_HIGH_PERIOD_COMPENSATE                          (7)
 #define I2C_SCL_LOW_PERIOD_COMPENSATE                           (1)
 #define NS_PER_SECOND                                           (1000000000)
+/* I2C SCL High/Low min period according to spec */
 #define I2C_FAST_MODE_PLUS_SCL_LOW_PERIOD_MIN_NS                (500)
 #define I2C_FAST_MODE_PLUS_SCL_HIGH_PERIOD_MIN_NS               (260)
 #define I2C_FAST_MODE_SCL_LOW_PERIOD_MIN_NS                     (1300)
 #define I2C_FAST_MODE_SCL_HIGH_PERIOD_MIN_NS                    (600)
 #define I2C_STANDARD_MODE_SCL_LOW_PERIOD_MIN_NS                 (4700)
 #define I2C_STANDARD_MODE_SCL_HIGH_PERIOD_MIN_NS                (4000)
+/* SDA Hold Time */
 #define I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS                 (600)
 #define I2C_FAST_MODE_PLUS_SDA_HOLD_TIME_NS                     (300)
 
-uint32_t I2C_TimeOut = 0xFFFFF;
+#define ROUNDUP(a, b)                                (((a + b - 1) / b))
+
+uint32_t I2C_TimeOut = 0xFFF;
 static uint32_t I2C_RisingTimeNs;
 extern uint8_t I2C_GetCompIndex(I2C_TypeDef *I2Cx);
 
@@ -96,29 +105,31 @@ void I2C_Init(I2C_TypeDef *I2Cx, I2C_InitTypeDef *I2C_InitStruct)
 
     /* Config sda tx hold time in different clock speed */
     uint8_t sda_tx_hold = 0;
-    switch (I2C_InitStruct->I2C_Clock)
+    uint8_t compensate_index = I2C_GetCompIndex(I2Cx);
+    uint32_t I2CSrcClk = 0;
+
+    if (compensate_index == 6)
     {
-    case 40000000:
-        if (I2C_InitStruct->I2C_ClockSpeed <= 400000)
-        {
-            sda_tx_hold = I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / I2C_40M_SOURCE_CLOCK_NS;
-        }
-        else
-        {
-            sda_tx_hold = I2C_FAST_MODE_PLUS_SDA_HOLD_TIME_NS / I2C_40M_SOURCE_CLOCK_NS;
-        }
-        break;
-    case 20000000:
-        sda_tx_hold = I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / I2C_20M_SOURCE_CLOCK_NS;
-        break;
-    case 10000000:
-        sda_tx_hold = I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / I2C_10M_SOURCE_CLOCK_NS;
-        break;
-    case 5000000:
-        sda_tx_hold = I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / I2C_5M_SOURCE_CLOCK_NS;
-        break;
-    default:
-        break;
+        I2CSrcClk = 1000000;
+    }
+    else if (compensate_index == 7)
+    {
+        I2CSrcClk = 625000;
+    }
+    else
+    {
+        I2CSrcClk = 40000000 / BIT(compensate_index);
+    }
+    uint32_t i2c_source_clock_ns = NS_PER_SECOND / I2CSrcClk;
+
+    if ((I2CSrcClk == 40000000) && (I2C_InitStruct->I2C_ClockSpeed > 400000))
+    {
+        sda_tx_hold = I2C_FAST_MODE_PLUS_SDA_HOLD_TIME_NS / i2c_source_clock_ns;
+    }
+    else
+    {
+        sda_tx_hold = (I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / i2c_source_clock_ns == 0) ? 1 :
+                      (I2C_STANDARD_FAST_MODE_SDA_HOLD_TIME_NS / i2c_source_clock_ns);
     }
 
     /* ------------------------------ Initialize I2C device ------------------------------*/
@@ -174,7 +185,7 @@ void I2C_Init(I2C_TypeDef *I2Cx, I2C_InitTypeDef *I2C_InitStruct)
 
         /* Set SDA setup time delay only in slave transmitter mode(greater than 2) ,delay time:[(IC_SDA_SETUP - 1) * (ic_clk_period)]*/
         IC_SDA_SETUP_TypeDef i2c_0x94 = {.d32 = I2Cx->IC_SDA_SETUP};
-        i2c_0x94.b.sda_setup = 0x02;
+        i2c_0x94.b.sda_setup = I2C_SDA_SETUP_TIME_VALUE;
         I2Cx->IC_SDA_SETUP = i2c_0x94.d32;
     }
 
@@ -318,6 +329,59 @@ I2C_Status I2C_CheckAbortStatus(I2C_TypeDef *I2Cx)
     return I2C_Success;
 }
 
+I2C_Status I2C_WaitForFIFO(I2C_TypeDef *I2Cx, uint32_t I2C_FLAG)
+{
+    uint32_t timeout = I2C_TimeOut;
+
+    /* Wait until the FIFO condition selected by I2C_FLAG becomes true:
+     * - TX: writable (TX FIFO Not Full, space available)
+     * - RX: readable (RX FIFO Not Empty, data available)
+     */
+    while (((I2Cx->IC_STATUS & I2C_FLAG) == 0) && (timeout != 0))
+    {
+        I2C_Status status = I2C_CheckAbortStatus(I2Cx);
+        if (status != I2C_Success)
+        {
+            return status;
+        }
+
+        if (--timeout == 0)
+        {
+            return I2C_ERR_TIMEOUT;
+        }
+    }
+
+    return I2C_CheckAbortStatus(I2Cx);
+}
+
+I2C_Status I2C_WaitTXIdle(I2C_TypeDef *I2Cx)
+{
+    uint32_t timeout = I2C_TimeOut;
+
+    /* Wait until the transmit is fully completed:
+     * - Bus becomes idle (ACTIVITY == 0)
+     * - TX FIFO is empty (TFE == 1)
+     */
+    while ((((I2Cx->IC_STATUS & I2C_FLAG_ACTIVITY) != 0) ||
+            ((I2Cx->IC_STATUS & I2C_FLAG_TFE) == 0)) &&
+           (timeout != 0))
+    {
+        I2C_Status status = I2C_CheckAbortStatus(I2Cx);
+        if (status != I2C_Success)
+        {
+            return status;
+        }
+
+        if (--timeout == 0)
+        {
+            return I2C_ERR_TIMEOUT;
+        }
+    }
+
+    return I2C_Success;
+}
+
+
 /**
   * \brief  Send data in master mode through the I2Cx peripheral.
   * \param  I2Cx: Select the I2C peripheral. \ref I2C_Declaration
@@ -327,68 +391,28 @@ I2C_Status I2C_CheckAbortStatus(I2C_TypeDef *I2Cx)
   */
 I2C_Status I2C_MasterWrite(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len)
 {
-    uint16_t cnt = 0;
-    uint32_t time_out = I2C_TimeOut;
-    I2C_Status abort_status = I2C_Success;
-
     /* Check the parameters */
     assert_param(IS_I2C_ALL_PERIPH(I2Cx));
 
-    /* Write in the DR register the data to be sent */
-    for (cnt = 0; cnt < len; cnt++)
+    I2C_Status status = I2C_Success;
+
+    for (uint16_t i = 0; i < len; i++)
     {
-        if (cnt >= len - 1)
+        uint32_t cmd = *pBuf++;
+        if (i == (len - 1))
         {
-            /*generate stop signal*/
-            I2Cx->IC_DATA_CMD = (*pBuf++) | I2C_0X10_STOP;
+            cmd |= I2C_CMD_STOP_BIT;
         }
-        else
-        {
-            I2Cx->IC_DATA_CMD = *pBuf++;
-        }
+        I2Cx->IC_DATA_CMD = cmd;
 
-        /* wait for flag of I2C_FLAG_TFNF */
-        time_out = I2C_TimeOut;
-        while (((I2Cx->IC_STATUS & I2C_FLAG_TFNF) == 0) && (time_out != 0))
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_TFNF);
+        if (status != I2C_Success)
         {
-            /* Check abort status */
-            abort_status = I2C_CheckAbortStatus(I2Cx);
-            if (abort_status != I2C_Success)
-            {
-                return abort_status;
-            }
-
-            time_out--;
-            if (time_out == 0)
-            {
-                return I2C_ERR_TIMEOUT;
-            }
-        }
-
-        /* Check abort status */
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
+            return status;
         }
     }
 
-    while (((I2C_GetFlagState(I2Cx, I2C_FLAG_ACTIVITY) == SET) ||   \
-            (I2C_GetFlagState(I2Cx, I2C_FLAG_TFE) != SET)) && (time_out != 0))
-    {
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
-        }
-        time_out--;
-        if (time_out == 0)
-        {
-            return I2C_ERR_TIMEOUT;
-        }
-    }
-
-    return abort_status;
+    return I2C_WaitTXIdle(I2Cx);
 }
 
 /**
@@ -400,98 +424,39 @@ I2C_Status I2C_MasterWrite(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len)
 I2C_Status I2C_MasterWriteDevice(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len, uint8_t *pbuf2,
                                  uint32_t len2)
 {
-    uint16_t cnt = 0;
-    uint32_t time_out = I2C_TimeOut;
-    I2C_Status abort_status = I2C_Success;
-
     /* Check the parameters */
     assert_param(IS_I2C_ALL_PERIPH(I2Cx));
+    I2C_Status status = I2C_Success;
 
     /* Write in the DR register the data to be sent */
-    for (cnt = 0; cnt < len; cnt++)
+    for (uint16_t i = 0; i < len; i++)
     {
         I2Cx->IC_DATA_CMD = *pBuf++;
 
-        /* wait for flag of I2C_FLAG_TFNF */
-        time_out = I2C_TimeOut;
-        while (((I2Cx->IC_STATUS & I2C_FLAG_TFNF) == 0) && (time_out != 0))
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_TFNF);
+        if (status != I2C_Success)
         {
-            /* Check abort status */
-            abort_status = I2C_CheckAbortStatus(I2Cx);
-            if (abort_status != I2C_Success)
-            {
-                return abort_status;
-            }
-
-            time_out--;
-            if (time_out == 0)
-            {
-                return I2C_ERR_TIMEOUT;
-            }
-        }
-
-        /* Check abort status */
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
+            return status;
         }
     }
 
-    for (cnt = 0; cnt < len2; cnt++)
+    for (uint16_t i = 0; i < len2; i++)
     {
-        if (cnt >= len2 - 1)
+        uint32_t cmd = *pbuf2++;
+        if (i == (len2 - 1))
         {
-            /*generate stop signal*/
-            I2Cx->IC_DATA_CMD = (*pbuf2++) | I2C_0X10_STOP;
+            cmd |= I2C_CMD_STOP_BIT;
         }
-        else
-        {
-            I2Cx->IC_DATA_CMD = *pbuf2++;
-        }
+        I2Cx->IC_DATA_CMD = cmd;
 
-        /* wait for flag of I2C_FLAG_TFNF */
-        time_out = I2C_TimeOut;
-        while (((I2Cx->IC_STATUS & I2C_FLAG_TFNF) == 0) && (time_out != 0))
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_TFNF);
+        if (status != I2C_Success)
         {
-            /* Check abort status */
-            abort_status = I2C_CheckAbortStatus(I2Cx);
-            if (abort_status != I2C_Success)
-            {
-                return abort_status;
-            }
-
-            time_out--;
-            if (time_out == 0)
-            {
-                return I2C_ERR_TIMEOUT;
-            }
-        }
-
-        /* Check abort status */
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
+            return status;
         }
     }
 
-    while (((I2C_GetFlagState(I2Cx, I2C_FLAG_ACTIVITY) == SET) ||   \
-            (I2C_GetFlagState(I2Cx, I2C_FLAG_TFE) != SET)) && (time_out != 0))
-    {
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
-        }
-        time_out--;
-        if (time_out == 0)
-        {
-            return I2C_ERR_TIMEOUT;
-        }
-    }
-
-    return abort_status;
+    return I2C_WaitTXIdle(I2Cx);
 }
 
 /**
@@ -503,73 +468,52 @@ I2C_Status I2C_MasterWriteDevice(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len,
   */
 I2C_Status I2C_MasterRead(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len)
 {
-    uint16_t cnt = 0;
-    uint32_t reg_value = 0;
-    uint32_t time_out = I2C_TimeOut;
-    I2C_Status abort_status = I2C_Success;
-
     /* Check the parameters */
     assert_param(IS_I2C_ALL_PERIPH(I2Cx));
 
-    /* read in the DR register the data to be sent */
-    for (cnt = 0; cnt < len; cnt++)
+    I2C_Status status = I2C_Success;
+
+    if (len == 0)
     {
-        if (cnt >= len - 1)
-        {
-            /* generate stop singal */
-            I2Cx->IC_DATA_CMD = (reg_value) | I2C_0X10_CMD | I2C_0X10_STOP;
-        }
-        else
-        {
-            I2Cx->IC_DATA_CMD = (reg_value) | I2C_0X10_CMD;
-        }
-
-        /* read data */
-        if (cnt > 0)
-        {
-            /* wait for I2C_FLAG_RFNE flag */
-            time_out = I2C_TimeOut;
-            while (((I2Cx->IC_STATUS & I2C_FLAG_RFNE) == 0) && (time_out != 0))
-            {
-                /* Check abort status */
-                abort_status = I2C_CheckAbortStatus(I2Cx);
-                if (abort_status != I2C_Success)
-                {
-                    return abort_status;
-                }
-
-                time_out--;
-                if (time_out == 0)
-                {
-                    return I2C_ERR_TIMEOUT;
-                }
-            }
-
-            *pBuf++ = (uint8_t)I2Cx->IC_DATA_CMD;
-        }
+        return status;
     }
 
-    /* wait for I2C_FLAG_RFNE flag */
-    time_out = I2C_TimeOut;
-    while (((I2Cx->IC_STATUS & I2C_FLAG_RFNE) == 0) && (time_out != 0))
+    /* Issue the first read cmd. If only one byte is requested, append STOP immediately. */
+    uint32_t cmd = 0x0 | I2C_CMD_READ_BIT;
+    if (len == 1)
     {
-        /* Check abort status */
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
-        }
+        cmd |= I2C_CMD_STOP_BIT;
+    }
+    I2Cx->IC_DATA_CMD = cmd;
 
-        time_out--;
-        if (time_out == 0)
+    for (uint16_t i = 1; i < len; i++)
+    {
+        /* Issue the remaining read cmd. */
+        cmd = 0x0 | I2C_CMD_READ_BIT;
+        if (i == (len - 1))
         {
-            return I2C_ERR_TIMEOUT;
+            cmd |= I2C_CMD_STOP_BIT;
         }
+        I2Cx->IC_DATA_CMD = cmd;
+
+        /* Read byte produced by the read. */
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_RFNE);
+        if (status != I2C_Success)
+        {
+            return status;
+        }
+        *pBuf++ = (uint8_t)I2Cx->IC_DATA_CMD;
     }
 
+    /* Read the final byte produced by the last command. */
+    status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_RFNE);
+    if (status != I2C_Success)
+    {
+        return status;
+    }
     *pBuf = (uint8_t)I2Cx->IC_DATA_CMD;
 
-    return abort_status;
+    return status;
 }
 
 /**
@@ -584,81 +528,43 @@ I2C_Status I2C_MasterRead(I2C_TypeDef *I2Cx, uint8_t *pBuf, uint16_t len)
 I2C_Status I2C_RepeatRead(I2C_TypeDef *I2Cx, uint8_t *pWriteBuf, uint16_t Writelen,
                           uint8_t *pReadBuf, uint16_t Readlen)
 {
-    uint16_t cnt = 0;
-    uint32_t reg_value = 0;
-    uint32_t time_out = I2C_TimeOut;
-    I2C_Status abort_status = I2C_Success;
-
     /* Check the parameters */
     assert_param(IS_I2C_ALL_PERIPH(I2Cx));
 
-    /*------------------------------ write data section ------------------------------*/
-    /* write data in the IC_DATA_CMD register */
-    for (cnt = 0; cnt < Writelen; cnt++)
+    I2C_Status status = I2C_Success;
+
+    for (uint16_t i = 0; i < Writelen; i++)
     {
         I2Cx->IC_DATA_CMD = *pWriteBuf++;
 
-        /*wait for I2C_FLAG_TFNF flag that Tx FIFO is not full*/
-        time_out = I2C_TimeOut;
-        while (((I2Cx->IC_STATUS & I2C_FLAG_TFNF) == 0) && (time_out != 0))
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_TFNF);
+        if (status != I2C_Success)
         {
-            /* Check abort status */
-            abort_status = I2C_CheckAbortStatus(I2Cx);
-            if (abort_status != I2C_Success)
-            {
-                return abort_status;
-            }
-
-            time_out--;
-            if (time_out == 0)
-            {
-                return I2C_ERR_TIMEOUT;
-            }
-        }
-
-        /* Check abort status */
-        abort_status = I2C_CheckAbortStatus(I2Cx);
-        if (abort_status != I2C_Success)
-        {
-            return abort_status;
+            return status;
         }
     }
 
-    /*------------------------------ read data section ------------------------------*/
-    for (cnt = 0; cnt < Readlen; cnt++)
+    for (uint16_t i = 0; i < Readlen; i++)
     {
-        if (cnt >= Readlen - 1)
+        /* Issue the read cmd. */
+        uint32_t cmd = 0x0 | I2C_CMD_READ_BIT;
+        if (i == (Readlen - 1))
         {
-            /*generate stop singal in last byte which to be sent*/
-            I2Cx->IC_DATA_CMD = reg_value | I2C_0X10_CMD | I2C_0X10_STOP;
+            cmd |= I2C_CMD_STOP_BIT;
         }
-        else
+        I2Cx->IC_DATA_CMD = cmd;
+
+        /* Read byte produced by the read. */
+        status = I2C_WaitForFIFO(I2Cx, I2C_FLAG_RFNE);
+        if (status != I2C_Success)
         {
-            I2Cx->IC_DATA_CMD = reg_value | I2C_0X10_CMD;
+            return status;
         }
-
-        /*wait for I2C_FLAG_RFNE flag*/
-        time_out = I2C_TimeOut;
-        while (((I2Cx->IC_STATUS & I2C_FLAG_RFNE) == 0) && (time_out != 0))
-        {
-            /* Check abort status */
-            abort_status = I2C_CheckAbortStatus(I2Cx);
-            if (abort_status != I2C_Success)
-            {
-                return abort_status;
-            }
-
-            time_out--;
-            if (time_out == 0)
-            {
-                return I2C_ERR_TIMEOUT;
-            }
-        }
-
         *pReadBuf++ = (uint8_t)I2Cx->IC_DATA_CMD;
     }
 
-    return abort_status;
+
+    return status;
 }
 
 /**
@@ -1062,153 +968,164 @@ void I2C_GDMACmd(I2C_TypeDef *I2Cx, I2CGdmaTransferRequests_TypeDef I2C_GDMAReq,
   */
 void I2C_SetClockSpeed(I2C_TypeDef *I2Cx, uint32_t I2C_ClockSpeed)
 {
-    uint8_t compensate_index = I2C_GetCompIndex(I2Cx);
-    uint32_t I2CSrcClk = 40000000 / BIT(compensate_index);
-    uint32_t i2c_source_clock_ns = 0;
-    uint32_t scl_period_ns = 0;
-    uint32_t total_hcnt_lcnt = 0;
+    uint8_t compensate_index = 0;
+    uint32_t tick_clksrc_ns = 0;
+    uint32_t I2CSrcClk = 0;
+    uint32_t allowedSpeed = 0;
+    uint32_t spklen = 0;
+    uint32_t scl_low_period_spec_min_ns = 0;
+    uint32_t scl_high_period_spec_min_ns = 0;
+    uint32_t scl_lcnt_min = 0;
+    uint32_t scl_hcnt_min = 0;
     uint32_t scl_low_period_min_ns = 0;
     uint32_t scl_high_period_min_ns = 0;
-    uint32_t scl_low_period_min_of_i2c_spec_ns = 0;
-    uint32_t scl_high_period_min_of_i2c_spec_ns = 0;
-    uint32_t scl_hcnt_min = 0;
-    uint32_t scl_lcnt_min = 0;
-    uint32_t scl_hcnt = 0;
+    uint32_t tick_clkspeed_ns = 0;
+    uint32_t total_period_ns = 0;
+    uint32_t total_hcnt_lcnt = 0;
+    int32_t remaining = 0;
     uint32_t scl_lcnt = 0;
-    int32_t remaining_cnt = 0;
-    uint32_t total_high_low_period = 0;
-    uint8_t  remainder = 0;
+    uint32_t scl_hcnt = 0;
 
-    IC_CON_TypeDef i2c_0x00 = {.d32 = I2Cx->IC_CON};
-    IC_SS_SCL_HCNT_TypeDef i2c_0x14 = {.d32 = I2Cx->IC_SS_SCL_HCNT};
-    IC_SS_SCL_LCNT_TypeDef i2c_0x18 = {.d32 = I2Cx->IC_SS_SCL_LCNT};
-    IC_FS_SCL_HCNT_TypeDef i2c_0x1c = {.d32 = I2Cx->IC_FS_SCL_HCNT};
-    IC_FS_SCL_LCNT_TypeDef i2c_0x20 = {.d32 = I2Cx->IC_FS_SCL_LCNT};
-    IC_FS_SPKLEN_TypeDef i2c_0xa0 = {.d32 = I2Cx->IC_FS_SPKLEN};
-
-    if (I2CSrcClk == 5000000)
+    /* Obtain the I2C Clock source based on the I2C divider. */
+    compensate_index = I2C_GetCompIndex(I2Cx);
+    if (compensate_index == 6)
     {
-        i2c_source_clock_ns = I2C_5M_SOURCE_CLOCK_NS;
-        i2c_0xa0.b.ic_fs_spklen = 0x03;
-        I2Cx->IC_FS_SPKLEN = i2c_0xa0.d32;
-        if (I2C_ClockSpeed > 100000)
-        {
-            I2C_ClockSpeed = 100000;
-        }
+        I2CSrcClk = 1000000;
     }
-    else if (I2CSrcClk == 10000000)
+    else if (compensate_index == 7)
     {
-        i2c_source_clock_ns = I2C_10M_SOURCE_CLOCK_NS;
-        if (I2C_ClockSpeed > 100000)
-        {
-            I2C_ClockSpeed = 100000;
-        }
+        I2CSrcClk = 625000;
+    }
+    else
+    {
+        I2CSrcClk = 40000000 / BIT(compensate_index);
+    }
+
+    /* Tick of I2C clock source in ns. */
+    tick_clksrc_ns = NS_PER_SECOND / I2CSrcClk;
+
+    /* Limit the maximum I2C speed according to the I2C clock source. */
+    if (I2CSrcClk == 40000000)
+    {
+        allowedSpeed = 1000000;
     }
     else if (I2CSrcClk == 20000000)
     {
-        i2c_source_clock_ns = I2C_20M_SOURCE_CLOCK_NS;
-        i2c_0xa0.b.ic_fs_spklen = 0x01;
-        I2Cx->IC_FS_SPKLEN = i2c_0xa0.d32;
-        if (I2C_ClockSpeed > 400000)
-        {
-            I2C_ClockSpeed = 400000;
-        }
+        allowedSpeed = 400000;
     }
     else
     {
-        i2c_source_clock_ns = I2C_40M_SOURCE_CLOCK_NS;
+        allowedSpeed = 100000;
     }
-    /*------------------------------ configure I2C speed ------------------------------*/
-    /* Obtain the minimum value of scl low period and scl high period specified in the spec */
+    /* Set Max I2C Clock speed. */
+    I2C_ClockSpeed = (I2C_ClockSpeed > allowedSpeed) ? allowedSpeed : I2C_ClockSpeed;
+
+    /* Set the spike time according to SPEC */
+    /* For Standard mode, there is no limit on spike suppression time, use default value. */
     if (I2C_ClockSpeed <= 100000)
     {
-        scl_low_period_min_of_i2c_spec_ns = I2C_STANDARD_MODE_SCL_LOW_PERIOD_MIN_NS;
-        scl_high_period_min_of_i2c_spec_ns = I2C_STANDARD_MODE_SCL_HIGH_PERIOD_MIN_NS;
+        spklen = 0x05;
+    }
+    /* For Fast mode (plus), the max spike suppression time is 50ns. */
+    else
+    {
+        spklen = 0x01;
+    }
+
+    /* Set suppression limit */
+    I2Cx->IC_FS_SPKLEN = spklen & 0xFFFF;
+
+
+    /******************* Calulate the SCL low high count based on SPEC *******************/
+    /* Get the minimum of scl low high period specified in the spec */
+    if (I2C_ClockSpeed <= 100000)
+    {
+        scl_low_period_spec_min_ns = I2C_STANDARD_MODE_SCL_LOW_PERIOD_MIN_NS;
+        scl_high_period_spec_min_ns = I2C_STANDARD_MODE_SCL_HIGH_PERIOD_MIN_NS;
     }
     else if (I2C_ClockSpeed <= 400000)
     {
-        scl_low_period_min_of_i2c_spec_ns = I2C_FAST_MODE_SCL_LOW_PERIOD_MIN_NS;
-        scl_high_period_min_of_i2c_spec_ns = I2C_FAST_MODE_SCL_HIGH_PERIOD_MIN_NS;
+        scl_low_period_spec_min_ns = I2C_FAST_MODE_SCL_LOW_PERIOD_MIN_NS;
+        scl_high_period_spec_min_ns = I2C_FAST_MODE_SCL_HIGH_PERIOD_MIN_NS;
     }
     else
     {
-        if (I2C_ClockSpeed > 1000000)
-        {
-            I2C_ClockSpeed = 1000000;
-        }
-        i2c_0xa0.b.ic_fs_spklen = 0x02;
-        I2Cx->IC_FS_SPKLEN = i2c_0xa0.d32;
-        scl_low_period_min_of_i2c_spec_ns = I2C_FAST_MODE_PLUS_SCL_LOW_PERIOD_MIN_NS;
-        scl_high_period_min_of_i2c_spec_ns = I2C_FAST_MODE_PLUS_SCL_HIGH_PERIOD_MIN_NS;
+        scl_low_period_spec_min_ns = I2C_FAST_MODE_PLUS_SCL_LOW_PERIOD_MIN_NS;
+        scl_high_period_spec_min_ns = I2C_FAST_MODE_PLUS_SCL_HIGH_PERIOD_MIN_NS;
     }
 
-    /* IC_SS_SCL_LCNT and IC_FS_SCL_LCNT register values must be larger than IC_FS_SPKLEN + 7 */
-    scl_lcnt_min = i2c_0xa0.b.ic_fs_spklen + 7 + 1;
-    /* IC_SS_SCL_HCNT and IC_FS_SCL_HCNT register values must be larger than IC_FS_SPKLEN + 5 */
-    scl_hcnt_min = i2c_0xa0.b.ic_fs_spklen + 5 + 1;
+    /* Calulate the minimum of scl low high period based on LCNT/HCNT specified in hardware:
+     *
+     * Firstly, get the minimum LCNT HCNT specified in hardware.
+     * - LCNT: IC_SS_SCL_LCNT and IC_FS_SCL_LCNT register values must be larger than IC_FS_SPKLEN + 7.
+     * - HCNT: IC_SS_SCL_HCNT and IC_FS_SCL_HCNT register values must be larger than IC_FS_SPKLEN + 5.
+     * Use +1 to enforce strictly greater with integer registers.
+     *
+     * Secondly, calulate the minimum of scl high/low period based on the LCNT/HCNT.
+     */
 
-    scl_low_period_min_ns = (scl_lcnt_min + I2C_SCL_LOW_PERIOD_COMPENSATE) * i2c_source_clock_ns;
-    scl_high_period_min_ns = (scl_hcnt_min + i2c_0xa0.b.ic_fs_spklen + I2C_SCL_HIGH_PERIOD_COMPENSATE) *
-                             i2c_source_clock_ns;
+    scl_lcnt_min = spklen + 7 + 1;
+    scl_hcnt_min = spklen + 5 + 1;
+    scl_low_period_min_ns = (scl_lcnt_min + I2C_SCL_LOW_PERIOD_COMPENSATE) * tick_clksrc_ns;
+    scl_high_period_min_ns = (scl_hcnt_min + spklen + I2C_SCL_HIGH_PERIOD_COMPENSATE) *
+                             tick_clksrc_ns;
 
-    if (scl_low_period_min_ns < scl_low_period_min_of_i2c_spec_ns)
-    {
-        scl_low_period_min_ns = scl_low_period_min_of_i2c_spec_ns;
-    }
+    /* Final minimum: satisfy both spec and hardware. */
+    scl_low_period_min_ns = (scl_low_period_min_ns > scl_low_period_spec_min_ns) ?
+                            scl_low_period_min_ns : scl_low_period_spec_min_ns;
+    scl_high_period_min_ns = (scl_high_period_min_ns > scl_high_period_spec_min_ns) ?
+                             scl_high_period_min_ns : scl_high_period_spec_min_ns;
 
-    if (scl_high_period_min_ns < scl_high_period_min_of_i2c_spec_ns)
-    {
-        scl_high_period_min_ns = scl_high_period_min_of_i2c_spec_ns;
-    }
+    scl_lcnt_min = ROUNDUP(scl_low_period_min_ns, tick_clksrc_ns) - I2C_SCL_LOW_PERIOD_COMPENSATE;
+    scl_hcnt_min = ROUNDUP(scl_high_period_min_ns,
+                           tick_clksrc_ns) - spklen - I2C_SCL_HIGH_PERIOD_COMPENSATE;
 
-    /* Calculate the period of SCL based on the frequency of I2C SCL */
-    scl_period_ns = NS_PER_SECOND / (I2C_ClockSpeed);
-    /* Calculate the sum of scl high period and scl low period */
-    total_high_low_period = scl_period_ns - I2C_RisingTimeNs;
-    remainder = total_high_low_period % i2c_source_clock_ns;
-    if (remainder != 0)
+    /*************** Calulate the SCL low high count based on I2C_Clock_Speed ***************/
+
+    /* Calculate target total (high+low) counter based on the desired frequency of I2C SCL.
+     * Firstly, calulate the total period: tick_clkspeed_ns minus I2C_RisingTimeNs.
+     *   - Notes: I2C_RisingTimeNs should be below the range.
+     * Secondly, total_period_ns div tick_clksrc_ns, round up.
+     * Then subtract SPKLEN and path compensations to get pure HCNT+LCNT sum.
+     */
+
+    tick_clkspeed_ns = NS_PER_SECOND / I2C_ClockSpeed;
+    total_period_ns = tick_clkspeed_ns - I2C_RisingTimeNs;
+    total_hcnt_lcnt = (ROUNDUP(total_period_ns, tick_clksrc_ns)
+                       - spklen - I2C_SCL_HIGH_PERIOD_COMPENSATE - I2C_SCL_LOW_PERIOD_COMPENSATE);
+
+    /***************** Distibute the remaining count to the SCL low high *****************/
+
+    /* Calculate the remaining as total_hcnt_lcnt - (scl_lcnt_min + scl_hcnt_min),
+     * distribute the remaining counts between low and high count.
+     */
+
+    remaining = total_hcnt_lcnt - scl_lcnt_min - scl_hcnt_min;
+    scl_lcnt = scl_lcnt_min;
+    scl_hcnt = scl_hcnt_min;
+    if (remaining > 0)
     {
-        total_high_low_period += i2c_source_clock_ns - remainder;
-    }
-    /* Calculate the sum of scl_hcnt and scl_lcnt */
-    total_hcnt_lcnt = (total_high_low_period / i2c_source_clock_ns) - i2c_0xa0.b.ic_fs_spklen
-                      - I2C_SCL_HIGH_PERIOD_COMPENSATE - I2C_SCL_LOW_PERIOD_COMPENSATE;
-    /* Calculate the minimum value of scl_lcnt */
-    scl_lcnt_min = scl_low_period_min_ns / i2c_source_clock_ns - I2C_SCL_LOW_PERIOD_COMPENSATE;
-    /* Calculate the minimum value of scl_hcnt */
-    scl_hcnt_min = scl_high_period_min_ns / i2c_source_clock_ns - i2c_0xa0.b.ic_fs_spklen -
-                   I2C_SCL_HIGH_PERIOD_COMPENSATE;
-    remaining_cnt = total_hcnt_lcnt - scl_lcnt_min - scl_hcnt_min;
-    if (remaining_cnt > 0)
-    {
-        scl_lcnt = scl_lcnt_min + remaining_cnt / 2;
+        scl_lcnt = scl_lcnt_min + (uint32_t)(remaining / 2);
         scl_hcnt = total_hcnt_lcnt - scl_lcnt;
     }
-    else
-    {
-        scl_lcnt = scl_lcnt_min;
-        scl_hcnt = scl_hcnt_min;
-    }
-    /*Configure I2C speed in standard mode*/
+
+    /* Set speed mode and write counters to responsing registers */
+    IC_CON_TypeDef i2c_ctrl = {.d32 = I2Cx->IC_CON};
     if (I2C_ClockSpeed <= 100000)
     {
-        i2c_0x00.b.speed = 0x1;
-        /* Configure I2C speed */
-        i2c_0x14.b.ic_ss_scl_hcnt = scl_hcnt;
-        i2c_0x18.b.ic_ss_scl_lcnt = scl_lcnt;
-        I2Cx->IC_CON = i2c_0x00.d32;
-        I2Cx->IC_SS_SCL_HCNT = i2c_0x14.d32;
-        I2Cx->IC_SS_SCL_LCNT = i2c_0x18.d32;
+        /*Configure I2C speed in standard mode*/
+        i2c_ctrl.b.speed = 0x1;
+        I2Cx->IC_CON = i2c_ctrl.d32;
+        I2Cx->IC_SS_SCL_LCNT = scl_lcnt & 0xFFFF;
+        I2Cx->IC_SS_SCL_HCNT = scl_hcnt & 0xFFFF;
     }
-    /* Configure I2C speed in fast mode or fast mode plus*/
     else
     {
-        i2c_0x00.b.speed = 0x2;
-        i2c_0x1c.b.ic_fs_scl_hcnt = scl_hcnt;
-        i2c_0x20.b.ic_fs_scl_lcnt = scl_lcnt;
-        I2Cx->IC_CON = i2c_0x00.d32;
-        I2Cx->IC_FS_SCL_HCNT = i2c_0x1c.d32;
-        I2Cx->IC_FS_SCL_LCNT = i2c_0x20.d32;
+        /* Configure I2C speed in fast mode or fast mode plus*/
+        i2c_ctrl.b.speed = 0x2;
+        I2Cx->IC_CON = i2c_ctrl.d32;
+        I2Cx->IC_FS_SCL_LCNT = scl_lcnt & 0xFFFF;
+        I2Cx->IC_FS_SCL_HCNT = scl_hcnt & 0xFFFF;
     }
 }
 

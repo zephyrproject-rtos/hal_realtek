@@ -282,7 +282,7 @@ void KeyScan_FilterDataConfig(KEYSCAN_TypeDef *KeyScan, uint16_t data, Functiona
   *         This parameter can be: ENABLE or DISABLE.
   * \return none.
   */
-void KeyScan_debounceConfig(KEYSCAN_TypeDef *KeyScan, uint8_t time,
+void KeyScan_debounceConfig(KEYSCAN_TypeDef *KeyScan, uint16_t time,
                             FunctionalState NewState)
 {
     /* Check the parameters */

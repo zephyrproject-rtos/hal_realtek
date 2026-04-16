@@ -583,7 +583,7 @@ void KeyScan_FilterDataConfig(KEYSCAN_TypeDef *KeyScan, uint16_t data,
  * }
  * \endcode
  */
-void KeyScan_debounceConfig(KEYSCAN_TypeDef *KeyScan, uint8_t time,
+void KeyScan_debounceConfig(KEYSCAN_TypeDef *KeyScan, uint16_t time,
                             FunctionalState NewState);
 
 /**
