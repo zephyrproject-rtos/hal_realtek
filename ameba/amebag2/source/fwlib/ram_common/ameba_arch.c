@@ -156,4 +156,3 @@ void irq_enable_restore(u32 PrevStatus)
 {
 	__set_PRIMASK(PrevStatus);
 }
-

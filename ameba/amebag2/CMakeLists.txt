@@ -29,6 +29,9 @@ zephyr_library_sources(
   source/fwlib/ram_common/ameba_clk.c
   source/fwlib/ram_common/ameba_rcc.c
   source/fwlib/ram_common/ameba_rtc.c
+  source/fwlib/ram_common/ameba_arch.c
+  source/fwlib/ram_common/ameba_ipc_api.c
+  source/fwlib/ram_common/ameba_ipc_ram.c
 )
 
 # used by driver, need use zephyr_library_sources_ifdef

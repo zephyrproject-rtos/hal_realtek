@@ -32,6 +32,9 @@ zephyr_library_sources(
   source/swlib/log.c
   source/fwlib/ram_common/ameba_adc.c
   source/fwlib/ram_common/ameba_loguart.c
+  source/fwlib/ram_common/ameba_arch.c
+  source/fwlib/ram_common/ameba_ipc_api.c
+  source/fwlib/ram_common/ameba_ipc_ram.c
 )
 
 # used by driver, need use zephyr_library_sources_ifdef
