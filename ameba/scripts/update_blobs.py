@@ -185,8 +185,8 @@ def read_existing_module_yml(path: str) -> tuple:
 
     header = '\n'.join(header_lines)
 
-    # Extract bee bins section (with possible leading whitespace)
-    bee_match = re.search(r'(\s*# ===== bee bins =====.*)', content, re.DOTALL)
+    # Extract bee bins section (capture from comment line, preserving blank lines before it)
+    bee_match = re.search(r'(\n  # ===== bee bins =====.*)', content, re.DOTALL)
     bee_blobs = bee_match.group(1) if bee_match else ""
 
     return header, bee_blobs
@@ -303,7 +303,7 @@ def generate_blob_list(output_path: str, git_rev: str, socs: list) -> None:
 
     # Add bee blobs section if exists (preserve original indentation)
     if bee_blobs_content:
-        file_out += "\n" + bee_blobs_content
+        file_out += bee_blobs_content
 
     with open(output_path, "w") as f:
         f.write(file_out)

@@ -425,7 +425,6 @@ blobs:
     description: "Binary libraries supporting the Ameba series Wi-Fi subsystems"
     doc-url: https://github.com/Ameba-AIoT/nuwa_lib
 
-
   # ===== bee bins =====
   - path: bee/rtl87x2g/bin/configFile_2025.09.02.14-e600f2d80e7f4ab3e6f089b6174ff6d7.bin
     sha256: 58dc2e17cc616e692f30018eed33715887f36ed5d814dac6addc5c785b687204
