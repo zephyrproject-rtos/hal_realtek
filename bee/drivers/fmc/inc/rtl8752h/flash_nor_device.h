@@ -53,11 +53,9 @@ extern uint32_t flash_nor_ioctl_buf_len;
 #define FLASH_NOR_STATUS_WEL_BIT                    (0x02)
 #define FLASH_NOR_IOCTL_MAX_BUF_LEN                 (0xFF)
 #define FLASH_NOR_TABLE_MAGIC_PATTERN               (0x5A5A12A5)
-#define FLASH_OFFSET_TO_NO_CACHE                    (0x01000000)
 #define IS_FLASH_SIZE_LARGER_THAN_16MB(size)        (size > (1 << 24))
 #define IS_SAME_FLASH_NOR_PAGE(addr0, addr1)        (((addr0) & 0xFFFFFF00) == ((addr1) & 0xFFFFFF00))
 #define CAL_ADDR                                    get_header_addr_by_img_id(OTA) + offsetof(T_IMG_HEADER_FORMAT, magic_pattern)
-#define IS_SPIC0_ADDR(addr)                         (((addr >= FMC_MAIN) && (addr < FMC_MAIN + SPIC0_SIZE)) || ((addr >= (FMC_MAIN | FLASH_OFFSET_TO_NO_CACHE)) && (addr < (FMC_MAIN | FLASH_OFFSET_TO_NO_CACHE) + SPIC0_SIZE)))
 
 /** End of FLASH_DEVICE_Exported_Macros
   * @}
