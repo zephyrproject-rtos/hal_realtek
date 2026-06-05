@@ -6,15 +6,17 @@ zephyr_compile_options(-mcmse)
 set(LIB_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/lib)
 
 set(WIFI_LIB_PATH ${LIB_PATH})
-zephyr_link_libraries_ifdef(CONFIG_WIFI_AMEBA
-  ${WIFI_LIB_PATH}/lib_wifi_whc_ap.a
-  ${WIFI_LIB_PATH}/lib_rtw_event.a
-  ${WIFI_LIB_PATH}/lib_wifi_api.a
-  ${WIFI_LIB_PATH}/lib_wpa_lite.a
-  ${WIFI_LIB_PATH}/lib_wifi_common.a
-  ${WIFI_LIB_PATH}/lib_coex_api.a
-  ${WIFI_LIB_PATH}/lib_wifi_rtk_app.a
-)
+if(CONFIG_WIFI_AMEBA AND NOT CONFIG_BUILD_ONLY_NO_BLOBS)
+  zephyr_link_libraries(
+    ${WIFI_LIB_PATH}/lib_wifi_whc_ap.a
+    ${WIFI_LIB_PATH}/lib_rtw_event.a
+    ${WIFI_LIB_PATH}/lib_wifi_api.a
+    ${WIFI_LIB_PATH}/lib_wpa_lite.a
+    ${WIFI_LIB_PATH}/lib_wifi_common.a
+    ${WIFI_LIB_PATH}/lib_coex_api.a
+    ${WIFI_LIB_PATH}/lib_wifi_rtk_app.a
+  )
+endif()
 zephyr_include_directories(
   include
   source/fwlib/include

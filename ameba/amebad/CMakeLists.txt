@@ -7,16 +7,19 @@ else()
   set(LIB_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/lib)
 endif()
 
-zephyr_link_libraries_ifdef(CONFIG_WIFI_AMEBA
-  -Wl,--start-group
-  ${LIB_PATH}/lib_wifi_rtk_app.a
-  ${LIB_PATH}/lib_wifi_single_core.a
-  -Wl,--end-group
-  ${LIB_PATH}/lib_wifi_api.a
-  ${LIB_PATH}/lib_rtw_event.a
-  ${LIB_PATH}/lib_wpa_lite.a
-  ${LIB_PATH}/lib_wifi_com_sec.a
-)
+if(CONFIG_WIFI_AMEBA AND NOT CONFIG_BUILD_ONLY_NO_BLOBS)
+  zephyr_link_libraries(
+    -Wl,--start-group
+    ${LIB_PATH}/lib_wifi_rtk_app.a
+    ${LIB_PATH}/lib_wifi_single_core.a
+    -Wl,--end-group
+    ${LIB_PATH}/lib_wifi_api.a
+    ${LIB_PATH}/lib_rtw_event.a
+    ${LIB_PATH}/lib_wpa_lite.a
+    ${LIB_PATH}/lib_wifi_com_sec.a
+  )
+endif()
+
 zephyr_link_libraries_ifdef(CONFIG_BT_COEXIST ${LIB_PATH}/lib_coex.a)
 
 zephyr_compile_options(-mcmse)
