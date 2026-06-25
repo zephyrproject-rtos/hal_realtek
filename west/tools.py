@@ -7,14 +7,44 @@
 import os
 import sys
 import json
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 import argparse
 import re
 
-from west.commands import WestCommand
-from west import log
+from west.commands import WestCommand, Verbosity
+
+_logger = logging.getLogger(__name__)
+
+
+class _WestLogHandler(logging.Handler):
+    # Routes Python logging records to WestCommand output methods so that
+    # _logger calls respect west's -v/-q flags and colorized output.
+    # Pattern adapted from zephyr/scripts/west_commands/build_helpers.py;
+    # see https://github.com/zephyrproject-rtos/west/issues/952
+    def __init__(self, command, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._command = command
+
+    def emit(self, record):
+        fmt = self.format(record)
+        lvl = record.levelno
+        if lvl >= logging.ERROR:
+            self._command.err(fmt)
+        elif lvl >= logging.WARNING:
+            self._command.wrn(fmt)
+        elif lvl >= logging.INFO:
+            self._command.inf(fmt)
+        else:
+            self._command.dbg(fmt, level=Verbosity.DBG_EXTREME)
+
+
+def _forward_logging_to_west(command, logger_name):
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(1 if command.verbosity >= Verbosity.DBG else logging.INFO)
+    logger.addHandler(_WestLogHandler(command))
 
 TOOLCHAIN_DB_FILE = "../ameba/scripts/toolchain_db.json"
 
@@ -31,9 +61,9 @@ def ensure_dir(path: Path):
     if not path.exists():
         try:
             path.mkdir(parents=True, exist_ok=True)
-            log.inf(f"Created directory: {path}")
+            _logger.info("Created directory: %s", path)
         except PermissionError:
-            log.die(f"Failed to create directory: {path}. Permission denied.")
+            sys.exit(f"Failed to create directory: {path}. Permission denied.")
 
 
 def run_cmd(cmd, cwd=None, quiet=False):
@@ -44,7 +74,7 @@ def run_cmd(cmd, cwd=None, quiet=False):
     """
     try:
         if not quiet:
-            print(f"[CMD] {' '.join(cmd) if isinstance(cmd, (list, tuple)) else cmd}", flush=True)
+            _logger.info("[CMD] %s", ' '.join(cmd) if isinstance(cmd, (list, tuple)) else cmd)
         proc = subprocess.Popen(
             cmd,
             shell=True,
@@ -83,13 +113,13 @@ def join_url(base: str, name: str) -> str:
 def download_from_urls(urls, dest: Path):
     dest.parent.mkdir(parents=True, exist_ok=True)
     for idx, url in enumerate(urls, start=1):
-        print(f"Download {dest.name} from: {url} ...")
+        _logger.info("Download %s from: %s ...", dest.name, url)
         ret, _, _ = run_cmd(f'wget -c --progress=bar:force -O "{dest}" "{url}"')
         if ret == 0:
-            print(f"Download {dest.name} success from: {url}")
+            _logger.info("Download %s success from: %s", dest.name, url)
             return
         else:
-            print(f"Download failed from: {url}")
+            _logger.warning("Download failed from: %s", url)
     sys.exit("Download failed from all mirrors. Please check network and try again.")
 
 
@@ -104,11 +134,11 @@ def extract_archive(archive: Path, dest_dir: Path, major: str, minor: str, newly
     dst_dir = dest_dir / f"{major}-{minor}"
 
     if dst_dir.exists():
-        log.inf(f"Toolchain already extracted: {dst_dir}")
+        _logger.info("Toolchain already extracted: %s", dst_dir)
         return
 
     if src_dir.exists():
-        log.inf(f"Relocating extracted layout: {src_dir} -> {dst_dir}")
+        _logger.info("Relocating extracted layout: %s -> %s", src_dir, dst_dir)
         if dst_dir.exists():
             shutil.rmtree(dst_dir)
         try:
@@ -119,14 +149,14 @@ def extract_archive(archive: Path, dest_dir: Path, major: str, minor: str, newly
         return
 
     if newly_downloaded:
-        log.inf(f"[Check] Validate newly downloaded archive: {archive.name}")
+        _logger.info("[Check] Validate newly downloaded archive: %s", archive.name)
         if not validate_archive(archive):
             sys.exit(f"Archive appears corrupted or incomplete: {archive}")
 
     if newly_downloaded:
-        print(f"Validation passed. Start extracting: {archive.name} ...")
+        _logger.info("Validation passed. Start extracting: %s ...", archive.name)
     else:
-        print(f"Start extracting: {archive.name} ...")
+        _logger.info("Start extracting: %s ...", archive.name)
 
     if os.name == "nt":
         ret, _, _ = run_cmd(f'7z x "{archive}" -o"{dest_dir}"')
@@ -138,7 +168,7 @@ def extract_archive(archive: Path, dest_dir: Path, major: str, minor: str, newly
             shutil.rmtree(src_dir)
         sys.exit(f"Unzip failed. Please unzip {archive} manually.")
 
-    print(f"Extract completed: {archive.name}")
+    _logger.info("Extract completed: %s", archive.name)
 
     if src_dir.exists():
         if dst_dir.exists():
@@ -148,9 +178,9 @@ def extract_archive(archive: Path, dest_dir: Path, major: str, minor: str, newly
         except Exception:
             shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
             shutil.rmtree(src_dir)
-        log.inf(f"Relocated: {src_dir} -> {dst_dir}")
+        _logger.info("Relocated: %s -> %s", src_dir, dst_dir)
     else:
-        log.wrn(f"Source directory not found after extraction: {src_dir}")
+        _logger.warning("Source directory not found after extraction: %s", src_dir)
 
 
 def locate_db_default(script_file: Path) -> Path:
@@ -166,49 +196,49 @@ def parse_toolchain_id(tid: str) -> tuple[str, str]:
     """
     m = _ID_RE.match(tid or "")
     if not m:
-        log.die(f"Invalid toolchain id '{tid}'; expected '<major>-<minor>' with numeric minor.")
+        sys.exit(f"Invalid toolchain id '{tid}'; expected '<major>-<minor>' with numeric minor.")
     return m.group(1), m.group(2)
 
 
 def load_toolchain_db(db_path: Path) -> dict:
     if not db_path.exists():
-        log.die(f"Toolchain DB not found: {db_path}")
+        sys.exit(f"Toolchain DB not found: {db_path}")
     try:
         with db_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
-        log.die(f"Failed to read toolchain DB: {db_path}: {e}")
+        sys.exit(f"Failed to read toolchain DB: {db_path}: {e}")
     if not isinstance(data, dict) or not data:
-        log.die(f"Invalid toolchain DB structure: {db_path}")
+        sys.exit(f"Invalid toolchain DB structure: {db_path}")
 
     # New schema: require url_base, suffix, chips, devices; aliyun_url_base is optional.
     required_keys = {"url_base", "suffix", "chips", "devices"}
     for tid, entry in data.items():
         if not isinstance(entry, dict):
-            log.die(f"Invalid entry for {tid}: expected object")
+            sys.exit(f"Invalid entry for {tid}: expected object")
         # validate id format '<major>-<minor>'
         parse_toolchain_id(tid)
         missing = required_keys - set(entry.keys())
         if missing:
-            log.die(f"Missing keys for {tid}: {', '.join(sorted(missing))}")
+            sys.exit(f"Missing keys for {tid}: {', '.join(sorted(missing))}")
         # basic type checks
         if not isinstance(entry.get("url_base"), str) or not entry.get("url_base"):
-            log.die(f"Invalid url_base for {tid}: expected non-empty string")
+            sys.exit(f"Invalid url_base for {tid}: expected non-empty string")
         if entry.get("aliyun_url_base") is not None and not isinstance(entry.get("aliyun_url_base"), str):
-            log.die(f"Invalid aliyun_url_base for {tid}: expected string or omit")
+            sys.exit(f"Invalid aliyun_url_base for {tid}: expected string or omit")
         if not isinstance(entry.get("suffix"), str) or not entry.get("suffix"):
-            log.die(f"Invalid suffix for {tid}: expected non-empty string")
+            sys.exit(f"Invalid suffix for {tid}: expected non-empty string")
         if not isinstance(entry.get("chips"), list) or not entry.get("chips"):
-            log.die(f"Invalid chips for {tid}: expected non-empty list")
+            sys.exit(f"Invalid chips for {tid}: expected non-empty list")
         if not isinstance(entry.get("devices"), list) or not entry.get("devices"):
-            log.die(f"Invalid devices for {tid}: expected non-empty list")
+            sys.exit(f"Invalid devices for {tid}: expected non-empty list")
     return data
 
 
 def derive_toolchain_info_by_id(toolchain_id: str, db: dict, tdir: Path) -> dict:
     if toolchain_id not in db:
         valid = ", ".join(sorted(db.keys()))
-        log.die(f"Unsupported toolchain '{toolchain_id}'. Valid values: {valid}")
+        sys.exit(f"Unsupported toolchain '{toolchain_id}'. Valid values: {valid}")
 
     c = db[toolchain_id]
 
@@ -253,22 +283,23 @@ def install_toolchain_by_id(toolchain_id: str, toolchain_dir: Path, db: dict, us
     minor: str = info["minor"]
 
     if t_path.exists():
-        log.inf(f"[{toolchain_id}] Toolchain already installed: {t_path}")
+        _logger.info("[%s] Toolchain already installed: %s", toolchain_id, t_path)
         return t_path
 
-    log.wrn(f"[{toolchain_id}] Toolchain path does not exist: {t_path}")
+    _logger.warning("[%s] Toolchain path does not exist: %s", toolchain_id, t_path)
 
     archive = toolchain_dir / archive_name
     newly_downloaded = False
 
     if archive.exists():
-        log.inf(f"[{toolchain_id}] [Check] Archive exists but extracted path missing; validating archive usability: {archive.name}")
+        _logger.info("[%s] [Check] Archive exists but extracted path missing; validating archive usability: %s",
+                     toolchain_id, archive.name)
         if not validate_archive(archive):
-            log.wrn(f"[{toolchain_id}] Existing archive appears corrupted; will re-download: {archive}")
+            _logger.warning("[%s] Existing archive appears corrupted; will re-download: %s", toolchain_id, archive)
             try:
                 archive.unlink()
             except Exception as e:
-                log.wrn(f"[{toolchain_id}] Failed to remove corrupted archive: {e}")
+                _logger.warning("[%s] Failed to remove corrupted archive: %s", toolchain_id, e)
 
     if not archive.exists():
         urls = []
@@ -281,18 +312,18 @@ def install_toolchain_by_id(toolchain_id: str, toolchain_dir: Path, db: dict, us
         newly_downloaded = True
 
     extract_archive(archive, toolchain_dir, major, minor, newly_downloaded=newly_downloaded)
-    log.inf(f"[{toolchain_id}] Extraction complete")
+    _logger.info("[%s] Extraction complete", toolchain_id)
 
     if not t_path.exists():
-        log.die(f"[{toolchain_id}] Toolchain install failed; expected path missing: {t_path}")
+        sys.exit(f"[{toolchain_id}] Toolchain install failed; expected path missing: {t_path}")
 
-    log.inf(f"[{toolchain_id}] Toolchain install success")
+    _logger.info("[%s] Toolchain install success", toolchain_id)
     return t_path
 
 
 def install_all_toolchains(toolchain_dir: Path, db: dict, use_aliyun: bool = False):
     if not db:
-        log.die("No toolchains defined in toolchain DB")
+        sys.exit("No toolchains defined in toolchain DB")
 
     results = {}
     for tid in sorted(db.keys()):
@@ -304,12 +335,12 @@ def install_all_toolchains(toolchain_dir: Path, db: dict, use_aliyun: bool = Fal
         except Exception as e:
             results[tid] = {"status": "FAILED", "reason": repr(e)}
 
-    log.inf("=== Install summary ===")
+    _logger.info("=== Install summary ===")
     for tid, res in results.items():
         if res["status"] == "OK":
-            log.inf(f"  {tid}: OK -> {res['path']}")
+            _logger.info("  %s: OK -> %s", tid, res["path"])
         else:
-            log.wrn(f"  {tid}: FAILED -> {res.get('reason')}")
+            _logger.warning("  %s: FAILED -> %s", tid, res.get("reason"))
 
 
 def build_help_mapping_text(db: dict) -> str:
@@ -413,6 +444,8 @@ class Tools(WestCommand):
         return parser
 
     def do_run(self, args, unknown_args):
+        _forward_logging_to_west(self, __name__)
+        logging.getLogger(__name__).propagate = False
         if getattr(args, "series", None) == "ameba":
             if args.subcmd == "install":
                 toolchain_dir = Path(args.toolchain_dir) if args.toolchain_dir else default_toolchain_dir()
@@ -422,15 +455,15 @@ class Tools(WestCommand):
 
                 if args.toolchain:
                     tid = args.toolchain
-                    log.inf(f"Installing toolchain: {tid}")
+                    self.inf(f"Installing toolchain: {tid}")
                     install_toolchain_by_id(tid, toolchain_dir, db, use_aliyun=args.aliyun)
                 else:
-                    log.inf("Installing ALL toolchains defined in toolchain DB ...")
+                    self.inf("Installing ALL toolchains defined in toolchain DB ...")
                     install_all_toolchains(toolchain_dir, db, use_aliyun=args.aliyun)
             else:
-                log.die(f"Unknown subcommand: {args.subcmd}")
+                self.die(f"Unknown subcommand: {args.subcmd}")
         else:
-            log.die(f"Unknown series: {getattr(args, 'series', None)}")
+            self.die(f"Unknown series: {getattr(args, 'series', None)}")
 
 
 def dedent_description() -> str:
