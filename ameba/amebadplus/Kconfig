@@ -4,6 +4,3 @@
 config ARM_CORE_CM4
 	bool
 	default y if SOC_SERIES_AMEBADPLUS
-
-config SOC_SERIES_AMEBADPLUS
-	select AS_INIC_AP if WLAN

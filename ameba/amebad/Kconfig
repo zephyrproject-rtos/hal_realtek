@@ -4,6 +4,3 @@
 config ARM_CORE_CM4
 	bool
 	default y if SOC_SERIES_AMEBAD
-
-config SOC_SERIES_AMEBAD
-	select SINGLE_CORE_WIFI if WLAN

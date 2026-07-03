@@ -7,7 +7,7 @@ config BT_COEXIST
 	bool "Enable CoExist"
 	default y if !SOC_SERIES_AMEBAD
 
-	select COEXIST_HOST if AS_INIC_AP && !SINGLE_CORE_WIFI
+	select COEXIST_HOST if !SINGLE_CORE_WIFI
 
 	select ZEPHYR_SDK
 
