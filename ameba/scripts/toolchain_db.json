@@ -22,7 +22,8 @@
     "devices": [
       "rtl872xda_evb",
       "rtl872xd_evb",
-      "rtl8730e_evb"
+      "rtl8730e_evb",
+      "pke8721daf_c13_f10"
     ]
   }
 }
