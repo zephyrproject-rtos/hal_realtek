@@ -78,6 +78,74 @@ typedef enum
 extern bool hw_aes_decrypt_16byte(uint8_t *input, uint8_t *output);
 
 /**
+    * @brief  128 bit AES encryption on specified plain data and keys
+    *
+    * @param[in]  p_in              specified plain data to be encrypted
+    * @param[out] p_out             output buffer to store encrypted data
+    * @param[in]  data_word_len     input buffer length in 32-bit words
+    * @param[in]  p_key             key buffer
+    * @param[in]  p_iv              initialization vector
+    * @param[in]  mode              AES mode specified by @ref T_HW_AES_MODE
+    *
+    * @return encryption results
+    * @retval true      successful
+    * @retval false     fail
+    */
+extern bool hw_aes_encrypt128(uint32_t *p_in, uint32_t *p_out, uint16_t data_word_len,
+                              uint32_t *p_key, uint32_t *p_iv, T_HW_AES_MODE mode);
+
+/**
+    * @brief  128 bit AES decryption on specified data and keys
+    *
+    * @param[in]  p_in              specified encrypted data to be decrypted
+    * @param[out] p_out             output buffer to store plain data
+    * @param[in]  data_word_len     input buffer length in 32-bit words
+    * @param[in]  p_key             key buffer
+    * @param[in]  p_iv              initialization vector
+    * @param[in]  mode              AES mode specified by @ref T_HW_AES_MODE
+    *
+    * @return decryption results
+    * @retval true      successful
+    * @retval false     fail
+    */
+extern bool hw_aes_decrypt128(uint32_t *p_in, uint32_t *p_out, uint16_t data_word_len,
+                              uint32_t *p_key, uint32_t *p_iv, T_HW_AES_MODE mode);
+
+/**
+    * @brief  256 bit AES encryption on specified plain data and keys
+    *
+    * @param[in]  p_in              specified plain data to be encrypted
+    * @param[out] p_out             output buffer to store encrypted data
+    * @param[in]  data_word_len     input buffer length in 32-bit words
+    * @param[in]  p_key             key buffer
+    * @param[in]  p_iv              initialization vector
+    * @param[in]  mode              AES mode specified by @ref T_HW_AES_MODE
+    *
+    * @return encryption results
+    * @retval true      successful
+    * @retval false     fail
+    */
+extern bool hw_aes_encrypt256(uint32_t *p_in, uint32_t *p_out, uint16_t data_word_len,
+                              uint32_t *p_key, uint32_t *p_iv, T_HW_AES_MODE mode);
+
+/**
+    * @brief  256 bit AES decryption on specified data and keys
+    *
+    * @param[in]  p_in              specified encrypted data to be decrypted
+    * @param[out] p_out             output buffer to store plain data
+    * @param[in]  data_word_len     input buffer length in 32-bit words
+    * @param[in]  p_key             key buffer
+    * @param[in]  p_iv              initialization vector
+    * @param[in]  mode              AES mode specified by @ref T_HW_AES_MODE
+    *
+    * @return decryption results
+    * @retval true      successful
+    * @retval false     fail
+    */
+extern bool hw_aes_decrypt256(uint32_t *p_in, uint32_t *p_out, uint16_t data_word_len,
+                              uint32_t *p_key, uint32_t *p_iv, T_HW_AES_MODE mode);
+
+/**
     * @brief  128 bit AES encryption via DMA on specified plain data and keys
     *
     * @param[in]  p_in              specified plain data to be encrypted

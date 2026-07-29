@@ -37,6 +37,10 @@ SECTIONS
     PROVIDE(LogUartDMAIdleHook = 0x00004449);
     PROVIDE(log_pm_check = 0x000044b7);
     PROVIDE(hw_aes_create_mutex = 0x00004561);
+    PROVIDE(hw_aes_encrypt128 = 0x00004639);
+    PROVIDE(hw_aes_decrypt128 = 0x00004671);
+    PROVIDE(hw_aes_encrypt256 = 0x000046a1);
+    PROVIDE(hw_aes_decrypt256 = 0x000046d7);
     PROVIDE(hw_aes_encrypt128_use_dma = 0x0000470d);
     PROVIDE(hw_aes_decrypt128_use_dma = 0x00004751);
     PROVIDE(swap_buf = 0x00004795);
