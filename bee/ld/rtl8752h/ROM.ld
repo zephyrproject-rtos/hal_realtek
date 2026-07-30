@@ -2,6 +2,7 @@ SECTIONS
 {
     PROVIDE(HardFault_Handler = 0x00000101);
     PROVIDE(ROM_Default_Handler = 0x0000015f);
+    PROVIDE(WDG_SystemReset = 0x000002b9);
     PROVIDE(hal_setup_hardware = 0x00000da7);
     PROVIDE(hal_setup_cpu = 0x00000ec7);
     PROVIDE(share_cache_ram = 0x00001025);
@@ -90,6 +91,7 @@ SECTIONS
     PROVIDE(flash_nor_auto_read_locked = 0x00010f1f);
     PROVIDE(flash_nor_set_seq_trans_enable = 0x00011135);
     PROVIDE(flash_nor_get_id = 0x0001113d);
+    PROVIDE(reset_reason_get = 0x00015c63);
     PROVIDE(os_mem_alloc_intern = 0x00015fb5);
     PROVIDE(os_mem_zalloc_intern = 0x0001600f);
     PROVIDE(os_mem_aligned_alloc_intern = 0x00016071);
