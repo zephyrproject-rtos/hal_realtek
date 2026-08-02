@@ -81,7 +81,21 @@ class FirmwarePacker:
             sdk_dir = os.environ.get("ZEPHYR_SDK_INSTALL_DIR")
             if not sdk_dir:
                 sys.exit("Error: ZEPHYR_SDK_INSTALL_DIR not set")
-            toolchain_path = Path(sdk_dir) / "arm-zephyr-eabi" / "bin"
+            # Zephyr SDK 1.0.0 moved the GNU toolchains under gnu/; earlier
+            # SDKs keep them directly below the install directory.
+            candidates = [
+                Path(sdk_dir) / "gnu" / prefix / "bin",
+                Path(sdk_dir) / prefix / "bin",
+            ]
+            toolchain_path = next(
+                (path for path in candidates if (path / f"{prefix}-objcopy").exists()),
+                None,
+            )
+            if toolchain_path is None:
+                sys.exit(
+                    f"Error: no {prefix} toolchain under {sdk_dir}, looked in: "
+                    + ", ".join(str(path) for path in candidates)
+                )
         elif variant == "gnuarmemb":
             prefix = "arm-none-eabi"
             gnu_path = os.environ.get("GNUARMEMB_TOOLCHAIN_PATH")
