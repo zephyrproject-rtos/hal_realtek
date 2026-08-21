@@ -73,23 +73,20 @@ class FirmwarePacker:
         if not variant:
             sys.exit("Error: ZEPHYR_TOOLCHAIN_VARIANT not set")
 
-        toolchain_path = None
-        prefix = None
+        # Ameba builds use Realtek's GNU Arm Embedded toolchain (asdk),
+        # installed via `west realtek ameba install`, which sets the
+        # gnuarmemb variant. No other variant is supported.
+        if variant != "gnuarmemb":
+            sys.exit(
+                f"Error: unsupported ZEPHYR_TOOLCHAIN_VARIANT '{variant}'; "
+                "Ameba requires 'gnuarmemb' (install via `west realtek ameba install`)"
+            )
 
-        if variant == "zephyr":
-            prefix = "arm-zephyr-eabi"
-            sdk_dir = os.environ.get("ZEPHYR_SDK_INSTALL_DIR")
-            if not sdk_dir:
-                sys.exit("Error: ZEPHYR_SDK_INSTALL_DIR not set")
-            toolchain_path = Path(sdk_dir) / "arm-zephyr-eabi" / "bin"
-        elif variant == "gnuarmemb":
-            prefix = "arm-none-eabi"
-            gnu_path = os.environ.get("GNUARMEMB_TOOLCHAIN_PATH")
-            if not gnu_path:
-                sys.exit("Error: GNUARMEMB_TOOLCHAIN_PATH not set")
-            toolchain_path = Path(gnu_path) / "bin"
-        else:
-            sys.exit(f"Unsupported toolchain variant: {variant}")
+        prefix = "arm-none-eabi"
+        gnu_path = os.environ.get("GNUARMEMB_TOOLCHAIN_PATH")
+        if not gnu_path:
+            sys.exit("Error: GNUARMEMB_TOOLCHAIN_PATH not set")
+        toolchain_path = Path(gnu_path) / "bin"
 
         return ToolchainConfig(
             objdump=toolchain_path / f"{prefix}-objdump",
