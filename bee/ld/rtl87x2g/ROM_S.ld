@@ -29,6 +29,8 @@ SECTIONS
     PROVIDE(flash_nor_set_seq_trans_enable = 0x0001c061);
     PROVIDE(flash_nor_set_addr_mode = 0x0001c069);
     PROVIDE(flash_nor_get_id = 0x0001c071);
+    PROVIDE(flash_nor_ioctl_internal = 0x0001c089);
+    PROVIDE(flash_nor_ioctl_get_buf_info = 0x0001c091);
     PROVIDE(flash_nor_cmd_list_init_nsc = 0x0001c0a9);
     PROVIDE(flash_nor_init_bp_lv_nsc = 0x0001c0b1);
     PROVIDE(update_cpu_tick_to_us_nsc = 0x0001c169);
