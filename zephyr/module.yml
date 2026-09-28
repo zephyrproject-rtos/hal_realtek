@@ -432,7 +432,7 @@ blobs:
     version: '0.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/configFile_2025.09.02.14-e600f2d80e7f4ab3e6f089b6174ff6d7.bin
-    description: "Config file"
+    description: "Non-executable RTL87X2G OEM configuration data containing the Bluetooth address, TX power, and other SoC settings."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl87x2g/bin/OTAHeader_Bank0_1.0.0.1-3e442e5fa761e6422f0b936bc5fb0c25.bin
     sha256: db04cbe1ee8f13a4525881d27209f1e917d05b12813e17d176415a8788c57630
@@ -440,7 +440,7 @@ blobs:
     version: '0.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/OTAHeader_Bank0_1.0.0.1-3e442e5fa761e6422f0b936bc5fb0c25.bin
-    description: "OTA header"
+    description: "Non-executable RTL87X2G image metadata containing the OTA header version and the start address and size of each image in the bank."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl87x2g/bin/BANK0_boot_patch_MP_release_1.0.183.27_e91dd4ad-dffb4c6d9a02fea1a24302c6e1a76fda.bin
     sha256: 514440728abbc14fe52d547bf7ffdc04dc7c4c32be5df1543d35e8bf86fe37d8
@@ -448,7 +448,7 @@ blobs:
     version: '183.27'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/BANK0_boot_patch_MP_release_1.0.183.27_e91dd4ad-dffb4c6d9a02fea1a24302c6e1a76fda.bin
-    description: "Boot patch bank0"
+    description: "RTL87X2G Bank 0 image of the Realtek secondary flash bootloader; Bank 0 and Bank 1 provide identical functionality and serve as mutual backups during OTA updates."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl87x2g/bin/BANK1_boot_patch_MP_release_1.0.183.27_e91dd4ad-8a0390ad5ea191e414f1c00c6b4e366c.bin
     sha256: a4c10821ceff84c680b502d00697ed71d69c905a7e4558440f84976dbf04e794
@@ -456,7 +456,7 @@ blobs:
     version: '183.27'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/BANK1_boot_patch_MP_release_1.0.183.27_e91dd4ad-8a0390ad5ea191e414f1c00c6b4e366c.bin
-    description: "Boot patch bank1"
+    description: "RTL87X2G Bank 1 image of the Realtek secondary flash bootloader; Bank 0 and Bank 1 provide identical functionality and serve as mutual backups during OTA updates."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl87x2g/bin/BANK0_sys_patch_MP_release_1.0.183.27_e91dd4ad-59b00aef9fefc715b8fb60de65a1ffe2.bin
     sha256: 1144ecca0010e92c203a350ad13cd23dac81c0f6900e1a9cfaac272ebe0a7fe5
@@ -464,7 +464,7 @@ blobs:
     version: '183.27'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/BANK0_sys_patch_MP_release_1.0.183.27_e91dd4ad-59b00aef9fefc715b8fb60de65a1ffe2.bin
-    description: "Sys patch"
+    description: "RTL87X2G-specific executable patch that optimizes and extends platform functions in the on-chip non-secure ROM."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl87x2g/bin/bt_stack_patch_MP_master_0.0.126.0_a075812a-ac40d4abfa2d071f5ad63aac0daad0f2.bin
     sha256: 81d9dbac674a80c16c5bb2997a2f34ffaf4a72e113435b48ef2621de4e782046
@@ -472,7 +472,7 @@ blobs:
     version: '126.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/images/bt_stack_patch_MP_master_0.0.126.0_a075812a-ac40d4abfa2d071f5ad63aac0daad0f2.bin
-    description: "BT stack patch"
+    description: "RTL87X2G-specific executable patch that optimizes and extends the Bluetooth Controller protocol stack in the on-chip ROM; not a Bluetooth Host stack."
     doc-url: https://docs.realmcu.com/sdk/rtl87x2g/common/en/latest/doc/platform/image_layout/text_en/README.html#flash-layout
   - path: bee/rtl8752h/bin/single_bank/configFile_2025.09.28.09-c56ff8be480e864851703087f3d661d3.bin
     sha256: ff35de5c1ade92efbebc5500135b073891301410ea4131de853cd3759cc01067
@@ -480,7 +480,7 @@ blobs:
     version: '0.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/images/configFile_2025.09.28.09-c56ff8be480e864851703087f3d661d3.bin
-    description: "Config file(OEM header)"
+    description: "Non-executable RTL8752H OEM configuration data containing the Bluetooth address, TX power, and other SoC settings."
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
   - path: bee/rtl8752h/bin/single_bank/OTAHeader_Bank0_1.0.0.1-b2dff20b37cc479bf054669db699e2e1.bin
     sha256: edad96b1ccd3d99a87b37aa184881ee4b9cb8752a47ee9b2d1bcad3b9e3e36ec
@@ -488,7 +488,7 @@ blobs:
     version: '0.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/images/OTAHeader_Bank0_1.0.0.1-b2dff20b37cc479bf054669db699e2e1.bin
-    description: "OTA header bank0"
+    description: "Non-executable RTL8752H image metadata containing the OTA header version and the start address and size of each image in the bank."
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
   - path: bee/rtl8752h/bin/single_bank/BANK0_fsbl_MP_master_1.2.4.0_722f404-e67afdd707414f84601a5bf52b53c788.bin
     sha256: d690ce0adb372dbfa266ca50d52bae8c0d79f2d9d437407484b2ad3830725031
@@ -496,7 +496,7 @@ blobs:
     version: '1.2.4.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/images/BANK0_fsbl_MP_master_1.2.4.0_722f404-e67afdd707414f84601a5bf52b53c788.bin
-    description: "FSBL(secure boot loader) bank0"
+    description: "RTL8752H-specific secure boot image that authenticates subsequent executable images using the SoC boot security mechanism."
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
   - path: bee/rtl8752h/bin/single_bank/BANK0_Patch_MP_release_0.0.322.2_56a2dbcd-2ca079e00bca6b92dd2af96124332221.bin
     sha256: 67c46b46685026fdd6bedcaa6036cd80edd11baea828ba427a8b987ce74616fb
@@ -504,7 +504,7 @@ blobs:
     version: '0.0.322.2'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/images/BANK0_Patch_MP_release_0.0.322.2_56a2dbcd-2ca079e00bca6b92dd2af96124332221.bin
-    description: "ROM patch bank0"
+    description: "RTL8752H-specific executable patch that optimizes and extends platform functions in the on-chip ROM."
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
   - path: bee/rtl8752h/bin/single_bank/bt_stack_patch_MP_master_0.0.145.0_ab89e0d5-982493ffb677098b7f324aef124f9554.bin
     sha256: 01de230ab0a1f133db2547af7a1b99cbd963add51713ec5f682173edf1420365
@@ -512,7 +512,7 @@ blobs:
     version: '0.0.145.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/images/bt_stack_patch_MP_master_0.0.145.0_ab89e0d5-982493ffb677098b7f324aef124f9554.bin
-    description: "BT stack patch bank0"
+    description: "RTL8752H-specific executable patch that optimizes and extends the Bluetooth Controller protocol stack in the on-chip ROM; not a Bluetooth Host stack."
     doc-url: https://docs.realmcu.com/sdk/rtl8752h/common/en/latest/platform/image_layout/text_en/README.html
 
   # ===== bee libs =====
@@ -522,18 +522,18 @@ blobs:
     version: '1.3.1.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl8752h/lib/libadc.a
-    description: "Precompiled ADC library for RTL8752H."
+    description: "RTL8752H-specific precompiled ADC hardware-enablement library providing calibration and raw-sample conversion routines; its API is declared in bee/drivers/adc/src/device/rtl8752h/adc_lib.h."
   - path: bee/drivers/rtl87x2g/adc/librtl87x2g_adc.a
     sha256: cd056d020b5b1d9dd1a4417c2afad6ea65e19241e4ebee780616b08872c10355
     type: lib
     version: '1.7.1.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/lib/libadc.a
-    description: "Precompiled ADC library for RTL87X2G."
+    description: "RTL87X2G-specific precompiled ADC hardware-enablement library providing calibration and raw-sample conversion routines; its API is declared in bee/drivers/adc/src/device/rtl87x2g/adc_lib.h."
   - path: bee/drivers/rtl87x2g/can/librtl87x2g_can.a
     sha256: 9ad9531c6fd1addd89903b80f06d32c60a9989c8aac5793baa8f0e498e9397ab
     type: lib
     version: '1.7.1.0'
     license-path: LICENSE
     url: https://github.com/rtkconnectivity/bee-blobs/raw/006b36e697c2c1ea6832fec5ef87ba89a2fbe8c6/rtl87x2g/lib/libcan.a
-    description: "Precompiled CAN library for RTL87X2G."
+    description: "RTL87X2G-specific precompiled hardware-enablement library for the on-chip CAN controller; its API is declared in bee/drivers/can/src/device/rtl87x2g/rtl_can.h."
