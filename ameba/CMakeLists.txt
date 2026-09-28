@@ -7,5 +7,3 @@ add_subdirectory(common)
 add_subdirectory(usrcfg)
 
 add_subdirectory(${CONFIG_SOC_SERIES})
-
-include(${CMAKE_CURRENT_LIST_DIR}/scripts/toolchain_check.cmake)
