@@ -12,6 +12,15 @@ config WLAN
 	bool "enable wifi"
 	default y
 
+config AS_INIC_AP
+	bool
+
+config AS_INIC_NP
+	bool
+
+config WIFI_FW_EN
+	bool
+
 config SINGLE_CORE_WIFI
 	bool
 	default y if SOC_SERIES_AMEBAD

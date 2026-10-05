@@ -94,17 +94,20 @@ soc_configs:Dict[str, SocImageConfig] = {
         image3_section = None, #Not support rsip yet(maybe only support rdp)
         dsp_section = None
     ),
-    "amebasmartplus": SocImageConfig(
-        image1_section = "KM4_BOOT_XIP",
+    "amebapro3": SocImageConfig(
+        image1_section = "KM4_BOOT",
         image2_section = {
-            "ap": "CA32_IMG2_XIP",
-            "hp": "KM4_IMG2_XIP",
-            "lp": "KM0_IMG2_XIP",
+            "ap": "CA32_IMG2",
+            "np": "KM4NP_IMG2",
+            "fp": "KM0_IMG2",
+            "mp": "KM4MP_IMG2",
         },
         image3_section = None, #Not support rsip yet(maybe only support rdp)
         dsp_section = None
     ),
 }
+
+soc_configs["amebag2"] = soc_configs["amebagreen2"]
 
 class FirmwarePackage(OperationBase):
     cmd_help_msg = 'Generate final firmware image'
@@ -133,8 +136,7 @@ class FirmwarePackage(OperationBase):
         parser.add_argument('--image2', type=str, nargs='+', help='Input image2 file path, the order and project path is important')
         parser.add_argument('--image3', type=str, help='Input image3 file path')
         parser.add_argument('--imgtool-floader', type=str, help='Input imagetool flashloader file path')
-        parser.add_argument('--fullmac-image1', type=str, help='Input fullmac image1 file path')
-        parser.add_argument('--fullmac-image2', type=str, help='Input fullmac image2 file path')
+        parser.add_argument('--fullmac-image', type=str, help='Input fullmac image file path')
         parser.add_argument('--dsp', type=str, help='Input dsp file path')
         parser.add_argument('-o', '--output-file', type=str, help='Output file name', required=True)
         parser.add_argument('--output-project', type=str, help='Output project name') #if not set, output project is decided by output_file
@@ -184,10 +186,8 @@ class FirmwarePackage(OperationBase):
             return self.process_app()
         elif self.context.args.imgtool_floader:
             return self.process_imgtool_floader()
-        elif self.context.args.fullmac_image1:
-            return self.process_fullmac_image1()
-        elif self.context.args.fullmac_image2:
-            return self.process_fullmac_image2()
+        elif self.context.args.fullmac_image:
+            return self.process_fullmac_image()
         else:
             self.logger.fatal("No image input")
             return Error(ErrorType.INVALID_INPUT, "No image input")
@@ -207,7 +207,7 @@ class FirmwarePackage(OperationBase):
         else:
             return self.process_app_without_sboot()
 
-    def process_fullmac_image1(self) -> Error:
+    def process_fullmac_image(self) -> Error:
         #Final output file's structure
         # ┌───────────────────────────┐
         # │ fullmac_ram_1_prepend.bin │
@@ -215,30 +215,13 @@ class FirmwarePackage(OperationBase):
         # │       manifest.bin        │
         # └───────────────────────────┘
 
-        manifest_file_name = os.path.join(self.output_image_dir, 'manifest_fullmac_image1.bin') #output manifest file
-        res = self.manifest_manager.create_manifest(manifest_file_name, self.context.args.fullmac_image1, ImageType.IMAGE1)
+        manifest_file_name = os.path.join(self.output_image_dir, 'manifest_fullmac_image.bin') #output manifest file
+        res = self.manifest_manager.create_manifest(manifest_file_name, self.context.args.fullmac_image, ImageType.IMAGE1)
         if res:
             self.logger.fatal("Failed generating manifest file")
             return res
         #NOTE: manifest file is behind input file
-        merge_files(self.output_file, self.context.args.fullmac_image1, manifest_file_name)  # merge_files api will overwrite output_file file
-        return Error.success()
-
-    def process_fullmac_image2(self) -> Error:
-        #Final output file's structure
-        # ┌────────────────────────────┐
-        # │ fullmac_sram_2_prepend.bin │
-        # ├────────────────────────────┤
-        # │        manifest.bin        │
-        # └────────────────────────────┘
-
-        manifest_file_name = os.path.join(self.output_image_dir, 'manifest_fullmac_image2.bin') #output manifest file
-        res = self.manifest_manager.create_manifest(manifest_file_name, self.context.args.fullmac_image2, ImageType.IMAGE2)
-        if res:
-            self.logger.fatal("Failed generating manifest file")
-            return res
-        #NOTE: manifest file is behind input file
-        merge_files(self.output_file, self.context.args.fullmac_image2, manifest_file_name)  # merge_files api will overwrite output_file file
+        merge_files(self.output_file, self.context.args.fullmac_image, manifest_file_name)  # merge_files api will overwrite output_file file
         return Error.success()
 
     def process_imgtool_floader(self) -> Error:
@@ -486,7 +469,8 @@ class FirmwarePackage(OperationBase):
         if img3_manifest_config == None: #NOTE: manifest maybe not contain image3
             img3_gcm_enable = False
         else:
-            img3_gcm_enable = img3_manifest_config.rsip_enable and img3_manifest_config.rsip_mode == 2
+            # image3 may not have rsip_enable if only RDP is configured
+            img3_gcm_enable = getattr(img3_manifest_config, 'rsip_enable', False) and getattr(img3_manifest_config, 'rsip_mode', None) == 2
 
         tmp_ns_file_name = modify_file_path(self.output_file, suffix='_ns')# non-secure app file
         merge_files(tmp_ns_file_name, cert_file_name, manifest_file_name)  # merge_files api will overwrite output_file file
@@ -526,10 +510,10 @@ class FirmwarePackage(OperationBase):
         if input_file_dir != self.output_image_dir:
             # copy input file to output_image_dir if not in
             shutil.copy(input_file, self.output_image_dir)
-            input_file = modify_file_path(input_file, new_directory=self.output_image_dir)
 
         manifest_config = self.manifest_manager.get_image_config(image_type)
-        gcm_enable = manifest_config.rsip_enable and manifest_config.rsip_mode == 2
+        rsip_enable = getattr(manifest_config, 'rsip_enable', False)
+        gcm_enable = rsip_enable and manifest_config.rsip_mode == 2
 
         tmp_en_file_name = output_encrypt_file           #encrypted file
         tmp_gcm_file_name = modify_file_path(tmp_en_file_name, suffix='_tag')   #gcm tag file, file name role in security.py
@@ -545,7 +529,7 @@ class FirmwarePackage(OperationBase):
             tmp_en_src_file_name = tmp_sb_file_name # Use sboot file encrypt
 
         #Step1: create encrypt file and manifest file
-        if manifest_config.rsip_enable:
+        if getattr(manifest_config, 'rsip_enable', False):
             info = parse_project_info(input_file)
             section = self.config.section(image_type)
             if isinstance(section, dict):
@@ -561,7 +545,7 @@ class FirmwarePackage(OperationBase):
                 #NOTE: manifest file should contains gcm info
                 if manifest_source_file: append_files(manifest_source_file, tmp_gcm_prepend_file_name)
         elif manifest_config.rdp_enable:
-            Rdp.execute(self.context, tmp_en_file_name, tmp_en_src_file_name, 'enc', ImageType.IMAGE1)
+            Rdp.execute(self.context, tmp_en_file_name, tmp_en_src_file_name, 'enc', image_type)
         else:
             self.logger.info(f"Both rsip and rdp are not enabled for {image_type.name.lower()}")
             shutil.copy(tmp_en_src_file_name, tmp_en_file_name)

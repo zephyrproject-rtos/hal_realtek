@@ -1,0 +1,210 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "ameba_soc.h"
+
+//IROM (rx) : 			ORIGIN = 0x10100000, LENGTH = 0x10000	/* ROM: 64k */
+//IROM_NS (rx) : 			ORIGIN = 0x10110000, LENGTH = 0x38000	/* ROM: 224k */
+//DROM (rx) : 			ORIGIN = 0x101C0000, LENGTH = 0x8000	/* ROM: 32k */
+//DROM_NS (rx) : 			ORIGIN = 0x101C8000, LENGTH = 0x10000	/* ROM: 64k */
+//ROMBSS_RAM (rw)  : 		ORIGIN = 0x10000000, LENGTH = 0x2000	/* ROM BSS RAM: 8K */
+//BOOTLOADER_RAM (rwx)  : 	ORIGIN = 0x10002000, LENGTH = 0x3000	/* BOOT Loader RAM: 12K */
+//BD_RAM (rwx)  : 		ORIGIN = 0x10005000, LENGTH = 0x78000	/* MAIN RAM: 480 */
+//PRINT_RAM (wx)  : 		ORIGIN = 0x1007D000, LENGTH = 0x1000	/* PRINTF BUFFER RAM: 4k */
+//MSP_RAM (wx)  : 		ORIGIN = 0x1007E000, LENGTH = 0x2000	/* MSP & MSP_S RAM: 8k */
+
+/*
+// <e>Setup behaviour of Sleep and Exception Handling
+*/
+#define SCB_CSR_AIRCR_INIT  1
+
+/*
+//   <o> Deep Sleep can be enabled by
+//     <0=>Secure and Non-Secure state
+//     <1=>Secure state only
+//   <i> Value for SCB->CSR register bit DEEPSLEEPS
+*/
+#define SCB_CSR_DEEPSLEEPS_VAL  1
+
+/*
+//   <o>System reset request accessible from
+//     <0=> Secure and Non-Secure state
+//     <1=> Secure state only
+//   <i> Value for SCB->AIRCR register bit SYSRESETREQS
+*/
+#define SCB_AIRCR_SYSRESETREQS_VAL  1
+
+/*
+//   <o>Priority of Non-Secure exceptions is
+//     <0=> Not altered
+//     <1=> Lowered to 0x80-0xFF
+//   <i> Value for SCB->AIRCR register bit PRIS
+*/
+#define SCB_AIRCR_PRIS_VAL      1
+
+/*
+//   <o>BusFault, HardFault, and NMI target
+//     <0=> Secure state
+//     <1=> Non-Secure state
+//   <i> Value for SCB->AIRCR register bit BFHFNMINS
+//	Notice: HardFault only behaves as a banked exception if AIRCR.BFHFNMINS is 1, otherwise it behaves as an
+//	unbanked exception targeting Secure state.
+*/
+#define SCB_AIRCR_BFHFNMINS_VAL 1
+
+//static const char *const TAG = "BOOT";
+#define MPC_IDAU_ADDR_MASK(x) 	((x) & 0x0FFFFFFF)
+
+BOOT_RAM_TEXT_SECTION
+static void BOOT_SecureChip_MPCCfg(void)
+{
+	int idex = 0;
+	int mpcIdx = 0;
+	MPC_TypeDef *MPCArray[2] = {KM4_MPC1, KM4_MPC2};
+	const TZ_CFG_TypeDef *CfgArray[2] = {mpc1_config, mpc2_config};
+	MPC_TypeDef *MPC;
+	const TZ_CFG_TypeDef *Config;
+
+	/* Configure MPC */
+	for (mpcIdx = 0; mpcIdx < 2; mpcIdx++) {
+		MPC = MPCArray[mpcIdx];
+		Config = CfgArray[mpcIdx];
+
+#ifdef CONFIG_CP_TEST_CA32
+		UNUSED(Config);
+		MPC->MPC_Entry[idex].IDAU_BARx = MPC_IDAU_ADDR_MASK(0x00000000);
+		MPC->MPC_Entry[idex].IDAU_LARx = MPC_IDAU_ADDR_MASK(0xFFFFFFFF);
+		MPC->IDAU_CTRL |= BIT(idex);
+		MPC->IDAU_LOCK = 1;
+#else
+		for (idex = 0; idex < MPC_ENTRY_NUM; idex++) {
+			/*  Check if search to end */
+			if (Config[idex].Start == 0xFFFFFFFF) {
+				break;
+			}
+
+			/* set MPC */
+			MPC->MPC_Entry[idex].IDAU_BARx = MPC_IDAU_ADDR_MASK(Config[idex].Start);
+			/* Note: __non_secure_psram_end__ maybe not real, use the chipinfo value. */
+			if (Config[idex].End == (u32)__non_secure_psram_end__ - 1) {
+				MPC->MPC_Entry[idex].IDAU_LARx = MPC_IDAU_ADDR_MASK(ChipInfo_PsramBoundary() - 1);
+			} else {
+				MPC->MPC_Entry[idex].IDAU_LARx = MPC_IDAU_ADDR_MASK(Config[idex].End);
+			}
+			MPC->IDAU_CTRL |= BIT(idex);
+		}
+
+		if (MPC == KM4_MPC1) {
+			if (Boot_AP_Enbale == DISABLE) {
+				/* entry7 is reserved for AP ATF for security reason, but shall be set when AP disabled */
+				MPC->MPC_Entry[7].IDAU_BARx = MPC_IDAU_ADDR_MASK((u32)__ca32_bl1_dram_start__ - 0x20);
+				MPC->MPC_Entry[7].IDAU_LARx = MPC_IDAU_ADDR_MASK((u32)__ca32_fip_dram_start__ + CA32_FIP_MAX_SIZE - 1);
+				MPC->IDAU_CTRL |= BIT(7);
+				MPC->IDAU_LOCK = 1;
+			} else {
+				//MPC1 is locked in AP ATF
+			}
+		} else {
+			MPC->IDAU_LOCK = 1;
+		}
+
+		//RTK_LOGD(TAG, "MPC: %08x, %08x\n", (u32)MPC, MPC->IDAU_CTRL);
+		for (idex = 0; idex < MPC_ENTRY_NUM; idex++) {
+			//DiagPrintf("IDAU_BAR%d:[%08x:%08x]\n", idex, MPC->ENTRY[idex].IDAU_BARx, MPC->ENTRY[idex].IDAU_LARx);
+		}
+#endif
+	}
+}
+
+BOOT_RAM_TEXT_SECTION
+static void BOOT_SecureChip_PPCCfg(void)
+{
+	/* Configure PPC, set all peripherals to Non-secure, except RXI300_hs */
+	PPC_TypeDef *PPC = KM4_PPC;
+	PPC->PPC_REG0 = 0xFFFFFFFF & ~BIT(17);
+	PPC->PPC_REG1 = 0xFFFFFFFF;
+}
+
+/**
+  *  @brief Config SAU based on sau_config table, and route NVIC/BusFault to Non-Secure.
+  *         Called from image3 (secure world) after the TZ region is loaded.
+  *  @retval None
+  */
+BOOT_RAM_TEXT_SECTION
+void BOOT_CPU_TZCfg(const SAU_CFG_TypeDef *sau_config)
+{
+	int idex = 0;
+	/* Configure SAU */
+	for (idex = 0; idex < SAU_ENTRY_NUM; idex++) {
+		/*  Check if search to end */
+		if (sau_config[idex].Start == 0xFFFFFFFF) {
+			break;
+		}
+
+		/* set SAU */
+		SAU->RNR  = (idex & SAU_RNR_REGION_Msk);
+		SAU->RBAR = (sau_config[idex].Start & SAU_RBAR_BADDR_Msk);
+		SAU->RLAR = (sau_config[idex].End & SAU_RLAR_LADDR_Msk) | \
+					((sau_config[idex].NSC << SAU_RLAR_NSC_Pos)  & SAU_RLAR_NSC_Msk)   | \
+					ENABLE << SAU_RLAR_ENABLE_Pos;
+	}
+
+	SAU->CTRL = ((SAU_INIT_CTRL_ENABLE << SAU_CTRL_ENABLE_Pos) & SAU_CTRL_ENABLE_Msk) |
+				((SAU_INIT_CTRL_ALLNS  << SAU_CTRL_ALLNS_Pos)  & SAU_CTRL_ALLNS_Msk)   ;
+
+	//RTK_LOGD(TAG, "SAU_CTRL:%lx\n", SAU->CTRL);
+
+	/* <0=> Secure state <1=> Non-Secure state */
+	NVIC->ITNS[0] = 0xFFFFFFFF; /* IRQ 0~31: Non-Secure state */
+	NVIC->ITNS[1] = 0xFFBFFFFF; /* IRQ 32~63: Non-Secure state except for IRQ54(TRNG)*/
+	NVIC->ITNS[2] = 0xFFFFFF3F; /* IRQ 64~95: Non-Secure state, except for IRQ70/71(AES_S/SHA_S)*/
+
+	SCB->AIRCR = (SCB->AIRCR &
+				  ~(SCB_AIRCR_VECTKEY_Msk   | SCB_AIRCR_SYSRESETREQS_Msk | SCB_AIRCR_BFHFNMINS_Msk |  SCB_AIRCR_PRIS_Msk)) |
+				 ((0x05FAU                    << SCB_AIRCR_VECTKEY_Pos)      & SCB_AIRCR_VECTKEY_Msk)      |
+				 //((SCB_AIRCR_SYSRESETREQS_VAL << SCB_AIRCR_SYSRESETREQS_Pos) & SCB_AIRCR_SYSRESETREQS_Msk) | /* reset both secure and non-secure */
+				 ((SCB_AIRCR_PRIS_VAL         << SCB_AIRCR_PRIS_Pos)         & SCB_AIRCR_PRIS_Msk)         |
+				 ((SCB_AIRCR_BFHFNMINS_VAL    << SCB_AIRCR_BFHFNMINS_Pos)    & SCB_AIRCR_BFHFNMINS_Msk);
+}
+
+BOOT_RAM_TEXT_SECTION
+static void BOOT_CPU_Cfg(void)
+{
+	/* DCache is Disabled by default when PG wakup, ICache does not have NS Bit in Cache Line */
+	if ((HAL_READ32(SYSTEM_CTRL_BASE_LP, REG_LSYS_BOOT_CFG) & LSYS_BIT_BOOT_WAKE_FROM_PS_HS) == 0) {
+		/* Clean and invalidate DCache before SAU configurations, because secure cache line hit
+			by non-secure transaction would cause CPU hang. */
+		SCB_CleanInvalidateDCache();
+	}
+
+	SCB->SCR   = (SCB->SCR   & ~(SCB_SCR_SLEEPDEEPS_Msk)) |
+				 ((SCB_CSR_DEEPSLEEPS_VAL     << SCB_SCR_SLEEPDEEPS_Pos)     & SCB_SCR_SLEEPDEEPS_Msk);
+}
+
+BOOT_RAM_TEXT_SECTION
+static void BOOT_SecureChip_PeriCfg(void)
+{
+	/* DMAC that supports Secure Feature only allows Secure CPU changes to Dma_en, and this is the master switch of the GDMA*/
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA0_REG_BASE_S);
+	/* Enable GDMA in DmaCfgReg */
+	GDMA->DmaCfgReg = 1;
+}
+
+BOOT_RAM_TEXT_SECTION
+static void BOOT_SecureChip_TZCfg(void)
+{
+	BOOT_SecureChip_MPCCfg();
+	BOOT_SecureChip_PPCCfg();
+	BOOT_SecureChip_PeriCfg();
+	/* SAU is configured in image3 */
+}
+
+BOOT_RAM_TEXT_SECTION
+void BOOT_RAM_TZCfg(void)
+{
+	BOOT_SecureChip_TZCfg();
+	BOOT_CPU_Cfg();
+}

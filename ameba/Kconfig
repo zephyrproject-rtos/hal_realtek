@@ -6,6 +6,9 @@ if SOC_FAMILY_REALTEK_AMEBA
 config REALTEK_AMEBA_HAL_LIB
 	bool "RealTek Ameba HAL library"
 	default y
+	# used in os_wrapper_task.c
+	select THREAD_ABORT_HOOK
+	select THREAD_CUSTOM_DATA
 	help
 	  This option enables the Realtek Ameba HAL library.
 

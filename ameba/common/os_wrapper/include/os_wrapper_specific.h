@@ -9,4 +9,8 @@
 
 #define RTOS_CONVERT_MS_TO_TICKS(MS) k_ms_to_cyc_floor32(MS)
 
+#ifndef configNUM_CORES
+#define configNUM_CORES CONFIG_MP_MAX_NUM_CPUS
+#endif
+
 #endif

@@ -8,8 +8,14 @@
 #define __OS_WRAPPER_CRITCAL_H__
 
 /**
- * Define CA32 SMP spin lock id
+ * @brief  Define core numbers settings. This macro will be checked during compilation to ensure
+ * that it is consistent with the configuration of the operating system.
  */
+#define RTOS_NUM_CORES CONFIG_MP_MAX_NUM_CPUS
+
+/**
+ * Define CA32 SMP spin lock id
+*/
 typedef enum {
 	RTOS_CRITICAL_DEFAULT = 0,
 	RTOS_CRITICAL_SOC,
@@ -32,12 +38,16 @@ typedef enum {
 int rtos_critical_is_in_interrupt(void);
 
 /**
- * @brief  Internally handles interrupt status (PRIMASK/CPSR) save
+ * @brief  Internally handles interrupt status (PRIMASK/CPSR) save.
+ * For Smart CA32-smp: Different components do not share the same spin_lock. They also do not share the same spin_lock with the system.
+ * For other kernels: Different components use the same lock with the system.
  */
 void rtos_critical_enter(uint32_t component_id);
 
 /**
  * @brief  Internally handles interrupt status(PRIMASK/CPSR) restore
+ * For Smart CA32-smp: Different components do not share the same spin_lock. They also do not share the same spin_lock with the system.
+ * For other kernels: Different components use the same lock with the system.
  */
 void rtos_critical_exit(uint32_t component_id);
 
@@ -46,4 +56,17 @@ void rtos_critical_exit(uint32_t component_id);
  * @retval >0: in critical state; 0: exit critical state
  */
 uint32_t rtos_get_critical_state(void);
+
+/**
+ * @brief  For OS wrapper internal use. It is generally not recommended to use this API
+ * For all cores: use the same lock with the system.
+ */
+void __rtos_critical_enter_os(void);
+
+/**
+ * @brief  For OS wrapper internal use. It is generally not recommended to use this API
+ * For all cores: use the same lock with the system.
+ */
+void __rtos_critical_exit_os(void);
+
 #endif
