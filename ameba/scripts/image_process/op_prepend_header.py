@@ -24,6 +24,9 @@ class PrependHeader(OperationBase):
     def register_args(parser) -> None:
         parser.add_argument('-m', '--map-file', help='Map file of axf file')
         parser.add_argument('-s', '--symbol', help='Symbol to be process')
+        parser.add_argument('--address', type=lambda x: int(x, 0),
+                            help='Literal load address, alternative to --map-file/--symbol '
+                            '(e.g. when the address is already known from ameba_layout.ld/DT)')
         parser.add_argument('-i', '--input-file', help='Input file to be process', required=True)
         parser.add_argument('-o', '--output-file', help='Output processed file', required=True)
         parser.add_argument('--boot-index', type=lambda x: int(x, 0), help='Boot index')
@@ -38,10 +41,13 @@ class PrependHeader(OperationBase):
 
     # @exit_on_failure(catch_exception=True)
     @staticmethod
-    def execute(context:Context, output_file:str, input_file:str, map_file:str = '', symbol:str = '', boot_index:Union[int, None] = None):
+    def execute(context:Context, output_file:str, input_file:str, map_file:str = '', symbol:str = '',
+               boot_index:Union[int, None] = None, address:Union[int, None] = None):
         file_name = os.path.basename(input_file)
         file_size = os.path.getsize(input_file)
-        if map_file:
+        if address is not None:
+            symbol_info = (hex(address), '?', '')
+        elif map_file:
             symbol_info = parse_map_file(map_file, symbol)
         else:
             symbol_info = ('0', '?', '')
@@ -85,7 +91,8 @@ class PrependHeader(OperationBase):
             self.context.args.input_file,
             self.context.args.map_file,
             self.context.args.symbol,
-            self.context.args.boot_index
+            self.context.args.boot_index,
+            self.context.args.address
         )
 
 

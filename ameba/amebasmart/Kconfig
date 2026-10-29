@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config ARM_CORE_CA32
+	bool
+	default y if SOC_RTL8730E_CA32
+
+config ARM_CORE_CM4
+	bool
+	default y if SOC_RTL8730E_KM4
+
+config ARM_CORE_CM0
+	bool
+	default y if SOC_RTL8730E_KM0
+
+config AS_INIC_NP
+	bool "Ameba WiFi network-processor (WHC NP) role"
+	depends on SOC_RTL8730E_KM4
+	help
+	  Run the 802.11 MAC/PHY driver and the WHC IPC device on the KM4,
+	  serving the CA32 WHC host.  Links the prebuilt lib_wifi_whc_np from
+	  the blob checkout.
+
+config WIFI_FW_EN
+	bool "Ameba WiFi MAC firmware on the LP core"
+	depends on SOC_RTL8730E_KM0
+	help
+	  Run the WiFi MAC real-time firmware tasks on the KM0.  Links the
+	  prebuilt lib_wifi_fw from the blob checkout.

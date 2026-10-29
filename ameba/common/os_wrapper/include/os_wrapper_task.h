@@ -75,7 +75,7 @@ int rtos_sched_get_state(void);
  * @retval RTK_SUCCESS(0) / RTK_FAIL(-1)
  */
 int rtos_task_create(rtos_task_t *pp_handle, const char *p_name, rtos_task_function_t p_routine,
-					 void *p_param, uint16_t stack_size_in_byte, uint16_t priority);
+					 void *p_param, size_t stack_size_in_byte, uint16_t priority);
 
 /**
  * @brief  Delete os level task routine.
@@ -135,5 +135,88 @@ void rtos_task_out_current_status(void);
  * @note   trustzone is required. Otherwise it's just an empty implementation.
  */
 void rtos_create_secure_context(uint32_t size);
+
+/**
+ * @brief  Timeout state structure used with rtos_task_set_time_out_state() and
+ *         rtos_task_check_for_time_out().
+ */
+typedef struct {
+	uint32_t over_flow_count;
+	uint32_t time_on_entering;
+} rtos_time_out_t;
+
+#define RTOS_LOCAL_STORAGE_LWIP_INDEX    0
+
+/**
+ * @brief  Get task name by handle
+ * @param  p_handle: Task handle. If null is passed in here then the name of the calling task is being queried.
+ * @retval task name
+ */
+char *rtos_task_name_get(rtos_task_t p_handle);
+
+/**
+ * @brief  Get idle task handle.
+ * @param  coreID: The core ID to get the idle task handle for.
+ * @retval Idle task handle pointer.
+ */
+rtos_task_t rtos_task_handle_get_idle(uint32_t coreID);
+
+/**
+ * @brief  Set task affinity to bind the task to a specific core.
+ * @param  p_handle: Task handle.
+ * @param  coreID: the core ID to bind.
+ */
+void rtos_task_set_affinity(rtos_task_t p_handle, uint32_t coreID);
+
+/**
+ * @brief  If a task enters and exits the Blocked state more than once while it is waiting for the event to occur then the timeout used
+ * each time the task enters the Blocked state must be adjusted to ensure the total of all the time spent in the Blocked state
+ * does not exceed the originally specified timeout period. rtos_task_check_for_time_out() performs the adjustment, taking into
+ * account occasional occurrences such as tick count overflows, which would otherwise make a manual adjustment prone to error.
+ * rtos_task_set_time_out_state() is used with rtos_task_check_for_time_out(). rtos_task_set_time_out_state() is called to set
+ * the initial condition, after which rtos_task_check_for_time_out() can be called to check for a timeout condition,
+ * and adjust the remaining block time if a timeout has not occurred.
+ * @param  p_rtos_time_out: A pointer to a structure that will be initialized to hold information necessary to determine if a timeout has occurred.
+ */
+void rtos_task_set_time_out_state(rtos_time_out_t *const p_rtos_time_out);
+
+/**
+ * @brief  Check whether a timeout has occurred.
+ * @param  p_rtos_time_out: A pointer to a structure that holds information necessary to determine if a timeout has occurred.
+ * 							p_rtos_time_out is initialized using rtos_task_set_time_out_state().
+ * @param  p_ms_to_wait: Used to pass out an adjusted block time in ms, which is the block time that remains after taking into account
+ * 						 the time already spent in the Blocked state.
+ * @retval TRUE: a timeout has occurred, and no block time remains
+ * @retval FALSE: not timeout. some block time remains (pass out by p_ms_to_wait), so a timeout has not occurred.
+ */
+int rtos_task_check_for_time_out(rtos_time_out_t *const p_rtos_time_out,
+								 uint32_t *p_ms_to_wait);
+
+/**
+ * @brief  The kernel does not use the pointers itself, so the application writer can use the pointers for any purpose they wish.
+ *         The following function is used to set a pointer.
+ * @param  p_handle: Task handle.
+ * @param  index: the index of the LocalStorage array in task TCB
+ * @param  p_param: Pointer to memory the caller give
+ */
+void rtos_task_set_thread_local_storage_pointer(rtos_task_t p_handle, uint16_t index,
+		void *p_param);
+
+/**
+ * @brief  The kernel does not use the pointers itself, so the application writer can use the pointers for any purpose they wish.
+ *         The following function is used to query a pointer.
+ * @param  p_handle: Task handle.
+ * @param  index: the index of the LocalStorage array in task TCB
+ * @retval Pointer to memory the caller previously give
+ */
+void *rtos_task_get_thread_local_storage_pointer(rtos_task_t p_handle, uint16_t index);
+
+/**
+ * @brief  Create a one-shot task that binds idle tasks to their respective
+ *         cores (core 0 for the primary idle task, core 1 for the passive
+ *         idle task).  Must be called after the scheduler is started.
+ *         When configUSE_CORE_AFFINITY is not enabled this is a no-op.
+ */
+void rtos_start_affinity_idle_task(void);
 
 #endif
