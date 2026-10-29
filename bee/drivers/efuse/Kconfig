@@ -1,0 +1,11 @@
+# Copyright (c) 2026, Realtek Semiconductor Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config REALTEK_BEE_EFUSE
+	bool "Realtek Bee eFuse driver"
+	default n
+	depends on SOC_SERIES_RTL87X2G
+	help
+	  Enable the eFuse driver for Realtek Bee rtl87x2g. Provides access
+	  to chip EUID, system type, and USB configuration stored in eFuse
+	  via the TrustZone NSC interface.
