@@ -37,6 +37,7 @@ zephyr_library_sources(
 )
 
 # used by driver, need use zephyr_library_sources_ifdef
+zephyr_library_sources_ifdef(CONFIG_CAN_AMEBA_CAN source/fwlib/ram_common/ameba_can.c)
 zephyr_library_sources_ifdef(CONFIG_ADC_AMEBA source/fwlib/ram_common/ameba_adc.c)
 zephyr_library_sources_ifdef(CONFIG_CAN_AMEBA_A2C source/fwlib/ram_common/ameba_a2c.c)
 zephyr_library_sources_ifdef(CONFIG_ETH_AMEBA source/fwlib/ram_km4tz/ameba_phy.c)

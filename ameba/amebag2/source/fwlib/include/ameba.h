@@ -98,6 +98,7 @@
 #include "ameba_psram.h"
 #include "ameba_psphy.h"
 #include "ameba_a2c.h"
+#include "ameba_can.h"
 #include "ameba_pmctimer.h"
 #include "ameba_thermal.h"
 
