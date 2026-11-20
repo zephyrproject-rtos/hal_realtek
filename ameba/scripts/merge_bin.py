@@ -152,11 +152,23 @@ class FirmwarePacker:
 
     def finalize_output(self, boot_bin: Path, app_bin: Path):
         if app_bin.exists():
+            self.check_app_size(app_bin)
             shutil.move(str(boot_bin), str(self.image_dir))
             shutil.move(str(app_bin), str(self.image_dir))
             logger.info(f"========== {self.soc_name} Image Done ==========")
         else:
             logger.error("Failed to generate application binary")
+            sys.exit(1)
+
+    def check_app_size(self, app_bin: Path):
+        max_size = self.args.max_app_size
+        if max_size is None:
+            return
+
+        size = app_bin.stat().st_size
+        if size > max_size:
+            logger.error(f"{app_bin.name} is {size} bytes, {size - max_size} bytes over "
+                         f"the {max_size}-byte application partition")
             sys.exit(1)
 
     # --- High Level Helpers (Standard Logic) ---
@@ -375,6 +387,8 @@ def main():
     parser.add_argument("--bt-coexist", action="store_true")
     parser.add_argument("--mcuboot", action="store_true")
     parser.add_argument("--sign-version")
+    parser.add_argument("--max-app-size", type=lambda s: int(s, 0),
+                        help="fail if the packed application image is larger (bytes)")
     args = parser.parse_args()
 
     try:
